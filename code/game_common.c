@@ -1,51 +1,5 @@
-i32 real_chain_index(LevelState* state, i32 relative_chain_index) {
-    // gotta do wonky mod to deal with negative numbers
-    i32 absolute = (state->move_chain_head + relative_chain_index);
-    i32 real = ((absolute % MOVE_CHAIN_SIZE) + MOVE_CHAIN_SIZE) % MOVE_CHAIN_SIZE;
-    if(real < 0) {
-        printf("real_chain_index calculated as %d from head %d + rel %d = %d\n",
-            real, 
-            state->move_chain_head, 
-            relative_chain_index, 
-            state->move_chain_head - relative_chain_index);
-        panic();
-    }
-    return real;
-}
-
-iv2 pos_at_relative_chain_index(LevelState* state, i32 chain_index) {
-    i32 real_index = real_chain_index(state, chain_index);
-    return pos_from_index(state->move_chain[real_index]);
-}
-
-bool entity_moved_this_cycle(Entity* entity) {
-    return (!iv2_eq(entity->pos_cur, entity->pos_prev));
-}
-
-i32 marchers_len(LevelState* state) {
-    return state->all_ducks_len + 1;
-}
-
-i32 active_marchers_len(LevelState* state) {
-    return state->active_ducks_len + 1;
-}
-
-bool entity_is_active_marcher(Entity* entity, LevelState* state) {
-    for(i32 i = 0; i < active_marchers_len(state); i++) {
-        if(entity == &state->marchers[i]) {
-            return true;
-        }
-    }
-    return false;
-}
-
-bool entity_is_active_duck(Entity* entity, LevelState* state) {
-    for(i32 i = 0; i < state->active_ducks_len; i++) {
-        if(entity == &state->ducks[i]) {
-            return true;
-        }
-    }
-    return false;
+i32 ducks_len(LevelState* state) {
+    return state->marchers_len - 1;
 }
 
 Level* active_game_level(Game* game) {
@@ -69,16 +23,17 @@ void draw_level_tiles(Level* level, DrawList* draw_list) {
     }
 }
 
-iv2 pos_from_direction(Entity* entity, MoveDirection move) {
-    iv2 position = entity->pos_cur;
-    switch(move) {
-        case MOVE_UP:    position.y++; break;
-        case MOVE_LEFT:  position.x--; break;
-        case MOVE_DOWN:  position.y--; break;
-        case MOVE_RIGHT: position.x++; break;
+iv2 delta_from_direction(MoveDirection dir) {
+    // NOW: must make sure its only one direction here.
+    iv2 pos = {};
+    switch(dir) {
+        case MOVE_UP:    pos.y++; break;
+        case MOVE_LEFT:  pos.x--; break;
+        case MOVE_DOWN:  pos.y--; break;
+        case MOVE_RIGHT: pos.x++; break;
         default: break;
     }
-    return position;
+    return pos;
 }
 
 MoveDirection direction_from_delta(iv2 prev, iv2 cur) {
@@ -95,22 +50,32 @@ MoveDirection entity_direction_from_delta(Entity* entity) {
     return direction_from_delta(prev, cur);
 }
 
-void entity_move_position(LevelState* state, Entity* entity, iv2 position) {
-    //assert(!iv2_eq(position, entity->pos_cur));
-	entity->pos_prev = entity->pos_cur;
-    entity->pos_cur = position;
-    entity->pos_t = 0.0f;
-
-    // VOLATILE: If an entity in the active set has called this function, it is
-    // assumed to be updating the chain.
-    if(entity_is_active_marcher(entity, state)) {
-        state->move_chain[real_chain_index(state, entity->chain_index)] = index_from_pos(position);
-    }
+MoveDirection direction_from_target(Entity* entity, iv2 target) {
+    return direction_from_delta(entity->pos_cur, target);
 }
 
-void entity_move_direction(LevelState* state, Entity* entity, MoveDirection move) {
-    iv2 position = pos_from_direction(entity, move);
-    entity_move_position(state, entity, position);
+iv2 pos_after_direction(Entity* entity, MoveDirection dir) {
+    iv2 pos = entity->pos_cur;
+    switch(dir) {
+        case MOVE_UP:    pos.y++; break;
+        case MOVE_LEFT:  pos.x--; break;
+        case MOVE_DOWN:  pos.y--; break;
+        case MOVE_RIGHT: pos.x++; break;
+        default: break;
+    }
+    return pos;
+}
+
+void entity_move(LevelState* state, Entity* entity, MoveDirection move) {
+    if(move == MOVE_NONE) {
+        return;
+    }
+
+    iv2 pos = pos_after_direction(entity, move);
+    entity->pos_prev = entity->pos_cur;
+    entity->pos_cur = pos;
+    entity->pos_t = 0.0f;
+    entity->move_this_cycle = move;
 }
 
 // NOTE: brittle reduntant with below
@@ -153,7 +118,7 @@ bool pos_passable(Game* game, iv2 pos) {
 }
 
 bool move_passable(Game* game, Entity* entity, MoveDirection move) {
-    iv2 pos = pos_from_direction(entity, move);
+    iv2 pos = pos_after_direction(entity, move);
     return pos_passable(game, pos);
 }
 
@@ -168,19 +133,14 @@ void draw_entity(DrawList* draw_list, Entity* entity, f32 time, f32 dt, i32 pale
         entity->pos_t = 1.0f;
     }
     v2 lerped_pos = v2_new(
-        lerp(entity->pos_prev.x, entity->pos_cur.x, entity->pos_t) * 8.0f,
-        lerp(entity->pos_prev.y, entity->pos_cur.y, entity->pos_t) * 8.0f);
+        lerp(entity->pos_prev_visible.x, entity->pos_cur.x, entity->pos_t) * 8.0f,
+        lerp(entity->pos_prev_visible.y, entity->pos_cur.y, entity->pos_t) * 8.0f);
 	entity->pos_visible = v2_lerp(entity->pos_visible, lerped_pos, 24.0f * dt);
-
-    // Draw
     draw_sprite_animated(draw_list, entity->sprite_handle, (time + entity->anim_offset_t) * 0.5f, entity->pos_visible, palette);
-    // NOW: debug pos_cur
+    //draw_sprite_animated(draw_list, SPRITE_DEBUG_CIRCLE, (time * 2.0f), v2_scale(v2_from_iv2(entity->pos_prev), 8.0f), 0);
+
+    // Use below for cur pos instead of visible
     //draw_sprite_animated(draw_list, entity->sprite_handle, (time + entity->anim_offset_t) * 0.5f, v2_scale(v2_from_iv2(entity->pos_cur), 8.0f), palette);
-    i32 num = entity->chain_index;
-    if(num > 9) {
-        num = 10;
-    }
-    draw_sprite(draw_list, SPRITE_NUMS, num, v2_add(entity->pos_visible, v2_new(3.0, 12.0)), 0);
 }
 
 // This is to be used in moments where the game might not be updating the game
@@ -189,20 +149,18 @@ void draw_entity(DrawList* draw_list, Entity* entity, f32 time, f32 dt, i32 pale
 void update_visual_state(Game* game, DrawList* draw_list, f32 dt) {
     LevelState* state = &game->state;
 
+    // Tiles
     draw_level_tiles(active_game_level(game), draw_list);
 
-    // Entities, first logic entities, then the chain
+    // Logic entities
     for(i32 i = 0; i < state->logic_entities_len; i++) {
         draw_entity(draw_list, &state->logic_entities[i], game->time, dt, 0);
     }
-    // NOW: iterate chain after iterate moving platforms.
-    for(i32 i = marchers_len(state) - 1; i >= 0; i--) {
+
+    // Marchers in reverse order.
+    for(i32 i = state->marchers_len - 1; i >= 0; i--) {
         Entity* entity = &state->marchers[i];
-        f32 palette = 0;
-        if(!entity_is_active_marcher(entity, state)) {
-            palette = 1;
-        }
-        draw_entity(draw_list, entity, game->time, dt, palette);
+        draw_entity(draw_list, entity, game->time, dt, 0);
     }
 }
 
@@ -333,7 +291,7 @@ void update_music_state(Game* game, Audio* audio, f32 dt) {
 
 	f32 i_phase = (f32)((i64)(game->time * 36.0f) % 12) / 12.0f;
 	i32 i = ((i64)(game->time * 3.0f) % 48);
-	bool hannah_moved_this_cycle = entity_moved_this_cycle(&state->hannah);
+	bool hannah_moved_this_cycle = (state->hannah.move_this_cycle != MOVE_NONE);
 
     f32 melody_vibrato = 8.0f;
     f32 melody_amp = 0.0f;

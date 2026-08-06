@@ -37,6 +37,8 @@ char* asset_pack_data = NULL;
 #define LOGIC_DATA_SIZE    256
 #define MOVE_CHAIN_SIZE    256
 
+#define STARTING_DUCKS     1
+
 typedef enum {
     MOVE_NONE = 0,
     MOVE_UP,
@@ -52,26 +54,17 @@ typedef enum {
 
 // Must never have an unstable reference
 typedef struct {
-    u64 sprite_handle;
-    iv2 pos_cur;
-    iv2 pos_prev;
-    v2  pos_visible;
-    f32 pos_t;
-    f32 anim_offset_t;
-
-    // Used by chain entities. Hannah always at [0].
-    // Relative to the head of the move_chain, [1] is directly behind Hannah.
-    // 
-    // Every turn that Hannah moves, ducks which are not followers decrement
-    // their chain index, otherwise, they stay the same.
-    //
-    // After this, entities compare their new position to the move chain, and
-    // set their chain index to the most recent. Maybe this is not invariant,
-    // and only happens with moving platforms. Not sure yet.
-    i32 chain_index;
-
+    u64           sprite_handle;
+    iv2           pos_cur;
+    iv2           pos_prev;
+    v2            pos_visible;
+    v2            pos_prev_visible;
+    f32           pos_t;
+    f32           anim_offset_t;
+    MoveDirection move_this_cycle;
+    MoveDirection pulled_move_this_cycle;
     // Used by logic entities
-    i32 logic_type;
+    i32           logic_type;
 } Entity;
 
 typedef struct {
@@ -88,8 +81,6 @@ typedef enum {
 
 typedef struct {
     MoveDirection input_move;
-    u8            move_chain[MOVE_CHAIN_SIZE]; // u8 tile indices, circular buffer.
-    i32           move_chain_head;             // What chain_index 0 maps to
     u8            logic_data[LOGIC_DATA_SIZE];
     Entity        logic_entities[LOGIC_ENTITIES_MAX];
     i32           logic_entities_len;
@@ -102,9 +93,7 @@ typedef struct {
             Entity ducks[DUCKS_MAX];
         };
     };
-    i32 all_ducks_len;
-    i32 active_ducks_len; // followers
-    i32 moving_platforms_len;
+    i32 marchers_len;
 } LevelState;
 
 typedef struct {
@@ -151,16 +140,13 @@ GAME_INIT(game_init) {
 	// setup entities. later, there will be structs for each type that reference
 	// entity indices. A subservient tool.
 	LevelState* state = &game->state;
-	state->all_ducks_len = 1;
-	state->active_ducks_len = 1;
-	for(i32 i = 0; i < marchers_len(state); i++) {
+	state->marchers_len = STARTING_DUCKS + 1;
+	for(i32 i = 0; i < state->marchers_len; i++) {
     	Entity* entity = &state->marchers[i];
     	entity->pos_cur = iv2_new(3 - i, 1);
     	entity->pos_prev = entity->pos_cur;
     	entity->pos_visible = v2_from_iv2(entity->pos_cur);
-    	entity->chain_index = i;
-    	// NOW: this is copied from entity_move_position
-        state->move_chain[real_chain_index(state, entity->chain_index)] = index_from_pos(entity->pos_cur);
+    	entity->pos_prev_visible = v2_from_iv2(entity->pos_prev);
     	if(i == 0) {
         	entity->sprite_handle = SPRITE_HANNAH_RIGHT;
     	} else {

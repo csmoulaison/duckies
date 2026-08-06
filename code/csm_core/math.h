@@ -44,6 +44,7 @@ static inline iv2  iv2_new(i32 x, i32 y);
 static inline bool iv2_eq(iv2 a, iv2 b);
 static inline iv2  iv2_scale(iv2 v, i32 scale);
 static inline iv2  iv2_add(iv2 a, iv2 b);
+static inline iv2  iv2_sub(iv2 a, iv2 b);
 static inline f32  iv2_distance(iv2 a, iv2 b);
 static inline v2   v2_from_iv2(iv2 v);
 // Vector2
@@ -152,6 +153,10 @@ static inline iv2 iv2_scale(iv2 v, i32 scale) {
 
 static inline iv2 iv2_add(iv2 a, iv2 b) {
 	return iv2_new(a.x + b.x, a.y + b.y);
+}
+
+static inline iv2 iv2_sub(iv2 a, iv2 b) {
+	return iv2_new(a.x - b.x, a.y - b.y);
 }
 
 static inline f32 iv2_distance(iv2 a, iv2 b) {

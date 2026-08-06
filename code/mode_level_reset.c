@@ -7,4 +7,6 @@ void mode_level_reset_update(Game* game, DrawList* draw_list, Audio* audio, f32 
         game->state = game->saved_state;
         game->mode = MODE_GAME;
     }
+    update_visual_state(game, draw_list, dt);
+
 }

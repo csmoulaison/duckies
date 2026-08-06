@@ -1,19 +1,10 @@
+iv2 debug_circle_pos   = {};
+iv2 debug_circle_pos_2 = {};
+
 void mode_game_update(Game* game, DrawList* draw_list, Audio* audio, f32 dt) {
     LevelState* state = &game->state;
 	if(input_button_pressed(game->input_buttons[BUTTON_RESET])) {
         reset_level(game);
-	}
-
-	// leave/beckon
-	if(input_button_pressed(game->input_buttons[BUTTON_LEAVE])) {
-    	if(state->active_ducks_len < state->all_ducks_len) {
-        	state->active_ducks_len++;
-    	}
-	}
-	if(input_button_pressed(game->input_buttons[BUTTON_BECKON])) {
-    	if(state->active_ducks_len > 0) {
-        	state->active_ducks_len--;
-    	}
 	}
 
     // hannah move
@@ -37,57 +28,74 @@ void mode_game_update(Game* game, DrawList* draw_list, Audio* audio, f32 dt) {
 
 	// used to calc the effect of the last move
     if(game->half_cycle_this_frame) {
-        for(i32 i = 0; i < marchers_len(state); i++) { 
+        for(i32 i = 0; i < state->marchers_len; i++) { 
             Entity* entity = &state->marchers[i];
             if(!pos_safe(game, entity->pos_cur)) {
                 reset_level(game);
             }
         }
     } else if(game->new_cycle_this_frame) {
-        // NOW: we are making it so ducks must start moving, and the chain head does every time,
-        // and they just copy them moves.
-        state->move_chain_head--;
-        for(i32 i = 0; i < marchers_len(state); i++) {
-            state->marchers[i].pos_prev = state->marchers[i].pos_cur;
+        // Marchers reset visible previous position and get moved by platforms.
+        for(i32 i = 0; i < state->marchers_len; i++) {
+            Entity* marcher = &state->marchers[i];
+            state->marchers[i].pos_prev_visible = v2_from_iv2(state->marchers[i].pos_cur);
+
+            // NOW: Doing platform movement first means a dismount moves on the
+            // same turn. Dismounts should not participate in the platform
+            // movement. Mounts should(?).
+            marcher->move_this_cycle = MOVE_NONE;
+            marcher->pulled_move_this_cycle = MOVE_NONE;
+            Entity* platform = try_platform_was_at_pos(game, marcher->pos_cur);
+            if(platform != NULL && platform->move_this_cycle != MOVE_NONE) {
+                entity_move(state, marcher, platform->move_this_cycle);
+                marcher->pulled_move_this_cycle = platform->move_this_cycle;
+            }
         }
 
-        // If hannah has decided to move and she can, she ignores the platform
-        if(move_passable(game, hannah, state->input_move)) {
-            entity_move_direction(state, hannah, state->input_move);
-        } else {
-            Entity* platform = try_platform_was_at_pos(game, hannah->pos_cur);
-            if(platform != NULL && entity_moved_this_cycle(platform)) {
-                state->move_chain_head--;
-                entity_move_position(state, hannah, platform->pos_cur);
-            }
+        // Hannah moves if applicable.
+        if(state->input_move != MOVE_NONE && move_passable(game, hannah, state->input_move)) {
+            entity_move(state, hannah, state->input_move);
         }
         state->input_move = MOVE_NONE;
 
-        for(i32 i = 0; i < state->all_ducks_len; i++) { 
+        // Ducks follow the leader
+        for(i32 i = 0; i < ducks_len(state); i++) { 
             Entity* duck = &state->ducks[i];
-            iv2 target_pos = duck->pos_cur;
-            if(i < state->active_ducks_len) {
-                target_pos = pos_at_relative_chain_index(state, duck->chain_index);
-                Entity* leader = &state->ducks[i - 1];
-                if(iv2_eq(target_pos, leader->pos_cur)) {
-                    target_pos = duck->pos_cur;
+            Entity* leader = &state->ducks[i - 1];
+            if(leader->move_this_cycle != MOVE_NONE) {
+                // NOW: Only problem is dismounting. Ducks get a little confused
+                // and don't take the step when a space is made.
+                iv2 target = leader->pos_prev;
+                if(duck->pulled_move_this_cycle != MOVE_NONE 
+                && leader->pulled_move_this_cycle == duck->pulled_move_this_cycle) {
+                    iv2 delta = delta_from_direction(duck->pulled_move_this_cycle);
+                    //printf("delta %d %d\n", delta.x, delta.y);
+                    if(iv2_eq(delta, iv2_sub(duck->pos_cur, leader->pos_cur))) {
+                        target = iv2_add(target, iv2_scale(delta, 2));
+                    }
                 }
-            } else {
-                duck->chain_index++;
-                if(duck->chain_index > 8) {
-                    state->active_ducks_len++;
+                debug_circle_pos = target;
+                if(!iv2_eq(target, leader->pos_cur)) {
+                    // NOW: direction_from_target gets confused on diagonals. Diagonals sholdn't happen.
+                    // They happen here because of dismounting from a moving platform.
+                    MoveDirection move = direction_from_target(duck, target);
+                    //assert(move != MOVE_NONE);
+                    entity_move(state, duck, move);
+                    if(move == MOVE_LEFT)  duck->sprite_handle = SPRITE_DUCK_LEFT;
+                    if(move == MOVE_RIGHT) duck->sprite_handle = SPRITE_DUCK_RIGHT;
+                } else {
+                    printf("couldnt move\n");
                 }
             }
-            entity_move_position(state, duck, target_pos);
-
-            MoveDirection direction = direction_from_delta(duck->pos_prev, duck->pos_cur);
-            if(direction == MOVE_LEFT)  duck->sprite_handle = SPRITE_DUCK_LEFT;
-            if(direction == MOVE_RIGHT) duck->sprite_handle = SPRITE_DUCK_RIGHT;
         }
     }
 
     // draw
     update_visual_state(game, draw_list, dt);
+
+    // Debug circle
+    draw_sprite_animated(draw_list, SPRITE_DEBUG_CIRCLE, (game->time * 2.0), v2_scale(v2_from_iv2(debug_circle_pos), 8.0f), 0);
+    draw_sprite_animated(draw_list, SPRITE_DEBUG_CIRCLE, ((game->time + 1.0) * 2.0f), v2_scale(v2_from_iv2(debug_circle_pos_2), 8.0f), 0);
 
 	if(input_button_pressed(game->input_buttons[BUTTON_EDITOR])) {
     	game->mode = MODE_EDITOR;
