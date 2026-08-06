@@ -1,0 +1,7 @@
+TODO AFTER JAM:
+- Pull SDL platform functionality into its own class.
+- Pull emscripten.c into main.c, using macros for differing functionality.
+  - I'm imaginging each main function being in its own macro block, and being
+    as small as it can possibly be, using helper functions that are all in the
+    same file for shared functionality. The main functions should clearly
+    represent the differences between the platforms.

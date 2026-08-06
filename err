@@ -1,0 +1,207 @@
+code/game.c:55:1: error: duplicate ‘typedef’
+   55 | typedef struct {
+      | ^~~~~~~
+code/game.c:55:9: error: expected ‘;’, identifier or ‘(’ before ‘struct’
+   55 | typedef struct {
+      |         ^~~~~~
+code/game.c:95:5: error: expected specifier-qualifier-list before ‘Entity’
+   95 |     Entity        logic_entities[LOGIC_ENTITIES_MAX];
+      |     ^~~~~~
+In file included from code/game.c:133:
+code/game_common.c:10:30: error: expected declaration specifiers or ‘...’ before ‘Entity’
+   10 | bool entity_moved_this_cycle(Entity* entity) {
+      |                              ^~~~~~
+code/game_common.c: In function ‘marchers_len’:
+code/game_common.c:15:17: error: ‘LevelState’ has no member named ‘all_ducks_len’
+   15 |     return state->all_ducks_len + 1;
+      |                 ^~
+code/game_common.c: In function ‘active_marchers_entities_len’:
+code/game_common.c:19:17: error: ‘LevelState’ has no member named ‘active_ducks_len’
+   19 |     return state->active_ducks_len + 1;
+      |                 ^~
+code/game_common.c: At top level:
+code/game_common.c:22:31: error: expected declaration specifiers or ‘...’ before ‘Entity’
+   22 | bool entity_is_active_marcher(Entity* entity, LevelState* state) {
+      |                               ^~~~~~
+code/game_common.c:31:28: error: expected declaration specifiers or ‘...’ before ‘Entity’
+   31 | bool entity_is_active_duck(Entity* entity, LevelState* state) {
+      |                            ^~~~~~
+code/game_common.c:61:24: error: expected declaration specifiers or ‘...’ before ‘Entity’
+   61 | iv2 pos_from_direction(Entity* entity, MoveDirection move) {
+      |                        ^~~~~~
+code/game_common.c:81:43: error: expected declaration specifiers or ‘...’ before ‘Entity’
+   81 | MoveDirection entity_direction_from_delta(Entity* entity) {
+      |                                           ^~~~~~
+code/game_common.c:87:46: error: expected declaration specifiers or ‘...’ before ‘Entity’
+   87 | void entity_move_position(LevelState* state, Entity* entity, iv2 position) {
+      |                                              ^~~~~~
+code/game_common.c:100:47: error: expected declaration specifiers or ‘...’ before ‘Entity’
+  100 | void entity_move_direction(LevelState* state, Entity* entity, MoveDirection move) {
+      |                                               ^~~~~~
+code/game_common.c:106:1: error: unknown type name ‘Entity’
+  106 | Entity* try_platform_was_at_pos(Game* game, iv2 pos) {
+      | ^~~~~~
+code/game_common.c: In function ‘try_platform_was_at_pos’:
+code/game_common.c:108:29: error: ‘LevelState’ has no member named ‘logic_entities_len’
+  108 |     for(i32 i = 0; i < state->logic_entities_len; i++) {
+      |                             ^~
+code/game_common.c:109:17: error: ‘entity’ undeclared (first use in this function); did you mean ‘Entity’?
+  109 |         Entity* entity = &state->logic_entities[i];
+      |                 ^~~~~~
+      |                 Entity
+code/game_common.c:109:17: note: each undeclared identifier is reported only once for each function it appears in
+code/game_common.c:109:32: error: ‘LevelState’ has no member named ‘logic_entities’
+  109 |         Entity* entity = &state->logic_entities[i];
+      |                                ^~
+code/game_common.c:110:67: error: ‘platform’ undeclared (first use in this function)
+  110 |         if(entity->logic_type == ENTITY_MOVING_PLATFORM && iv2_eq(platform->pos_prev, pos)) {
+      |                                                                   ^~~~~~~~
+code/game_common.c: At top level:
+code/game_common.c:117:1: error: unknown type name ‘Entity’
+  117 | Entity* try_platform_at_pos(Game* game, iv2 pos) {
+      | ^~~~~~
+code/game_common.c: In function ‘try_platform_at_pos’:
+code/game_common.c:119:29: error: ‘LevelState’ has no member named ‘logic_entities_len’
+  119 |     for(i32 i = 0; i < state->logic_entities_len; i++) {
+      |                             ^~
+code/game_common.c:120:17: error: ‘entity’ undeclared (first use in this function); did you mean ‘Entity’?
+  120 |         Entity* entity = &state->logic_entities[i];
+      |                 ^~~~~~
+      |                 Entity
+code/game_common.c:120:32: error: ‘LevelState’ has no member named ‘logic_entities’
+  120 |         Entity* entity = &state->logic_entities[i];
+      |                                ^~
+code/game_common.c:121:67: error: ‘platform’ undeclared (first use in this function)
+  121 |         if(entity->logic_type == ENTITY_MOVING_PLATFORM && iv2_eq(platform->pos_cur, pos)) {
+      |                                                                   ^~~~~~~~
+code/game_common.c: At top level:
+code/game_common.c:144:32: error: expected declaration specifiers or ‘...’ before ‘Entity’
+  144 | bool move_passable(Game* game, Entity* entity, MoveDirection move) {
+      |                                ^~~~~~
+code/game_common.c:149:39: error: expected declaration specifiers or ‘...’ before ‘Entity’
+  149 | void draw_entity(DrawList* draw_list, Entity* entity, f32 time, f32 dt, i32 palette) {
+      |                                       ^~~~~~
+code/game_common.c: In function ‘update_visual_state’:
+code/game_common.c:174:29: error: ‘LevelState’ has no member named ‘logic_entities_len’
+  174 |     for(i32 i = 0; i < state->logic_entities_len; i++) {
+      |                             ^~
+code/game_common.c:175:9: error: implicit declaration of function ‘draw_entity’ [-Wimplicit-function-declaration]
+  175 |         draw_entity(draw_list, &state->logic_entities[i], game->time, dt, 0);
+      |         ^~~~~~~~~~~
+code/game_common.c:175:38: error: ‘LevelState’ has no member named ‘logic_entities’
+  175 |         draw_entity(draw_list, &state->logic_entities[i], game->time, dt, 0);
+      |                                      ^~
+code/game_common.c:179:17: error: ‘entity’ undeclared (first use in this function); did you mean ‘Entity’?
+  179 |         Entity* entity = &state->marchers[i];
+      |                 ^~~~~~
+      |                 Entity
+code/game_common.c:179:32: error: ‘LevelState’ has no member named ‘marchers’
+  179 |         Entity* entity = &state->marchers[i];
+      |                                ^~
+code/game_common.c:181:13: error: implicit declaration of function ‘entity_is_active_marcher’ [-Wimplicit-function-declaration]
+  181 |         if(!entity_is_active_marcher(entity, state)) {
+      |             ^~~~~~~~~~~~~~~~~~~~~~~~
+code/game_common.c: In function ‘update_music_state’:
+code/game_common.c:315:40: error: implicit declaration of function ‘entity_moved_this_cycle’ [-Wimplicit-function-declaration]
+  315 |         bool hannah_moved_this_cycle = entity_moved_this_cycle(&state->hannah);
+      |                                        ^~~~~~~~~~~~~~~~~~~~~~~
+code/game_common.c:315:70: error: ‘LevelState’ has no member named ‘hannah’
+  315 |         bool hannah_moved_this_cycle = entity_moved_this_cycle(&state->hannah);
+      |                                                                      ^~
+In file included from code/game.c:134:
+code/mode_game.c: In function ‘mode_game_update’:
+code/mode_game.c:6:17: error: ‘LevelState’ has no member named ‘active_ducks_len’
+    6 |         if(state->active_ducks_len < state->all_ducks_len) {
+      |                 ^~
+code/mode_game.c:6:43: error: ‘LevelState’ has no member named ‘all_ducks_len’
+    6 |         if(state->active_ducks_len < state->all_ducks_len) {
+      |                                           ^~
+code/mode_game.c:7:22: error: ‘LevelState’ has no member named ‘active_ducks_len’
+    7 |                 state->active_ducks_len++;
+      |                      ^~
+code/mode_game.c:11:17: error: ‘LevelState’ has no member named ‘active_ducks_len’
+   11 |         if(state->active_ducks_len > 0) {
+      |                 ^~
+code/mode_game.c:12:22: error: ‘LevelState’ has no member named ‘active_ducks_len’
+   12 |                 state->active_ducks_len--;
+      |                      ^~
+code/mode_game.c:17:13: error: ‘hannah’ undeclared (first use in this function)
+   17 |     Entity* hannah = &state->hannah;
+      |             ^~~~~~
+code/mode_game.c:17:28: error: ‘LevelState’ has no member named ‘hannah’
+   17 |     Entity* hannah = &state->hannah;
+      |                            ^~
+code/mode_game.c:38:21: error: ‘entity’ undeclared (first use in this function); did you mean ‘Entity’?
+   38 |             Entity* entity = &state->marchers[i];
+      |                     ^~~~~~
+      |                     Entity
+code/mode_game.c:38:36: error: ‘LevelState’ has no member named ‘marchers’
+   38 |             Entity* entity = &state->marchers[i];
+      |                                    ^~
+code/mode_game.c:49:28: error: implicit declaration of function ‘logic_entities_len’ [-Wimplicit-function-declaration]
+   49 |         for(i32 i = 0; i < logic_entities_len(state); i++) {
+      |                            ^~~~~~~~~~~~~~~~~~
+code/mode_game.c:50:18: error: ‘LevelState’ has no member named ‘logic_entities’
+   50 |             state->logic_entities[i].pos_prev = state->logic_entities[i].pos_cur;
+      |                  ^~
+code/mode_game.c:50:54: error: ‘LevelState’ has no member named ‘logic_entities’
+   50 |             state->logic_entities[i].pos_prev = state->logic_entities[i].pos_cur;
+      |                                                      ^~
+code/mode_game.c:53:18: error: ‘LevelState’ has no member named ‘marchers’
+   53 |             state->marchers[i].pos_prev = state->marchers[i].pos_cur;
+      |                  ^~
+code/mode_game.c:53:48: error: ‘LevelState’ has no member named ‘marchers’
+   53 |             state->marchers[i].pos_prev = state->marchers[i].pos_cur;
+      |                                                ^~
+code/mode_game.c:57:46: error: implicit declaration of function ‘move_passable’; did you mean ‘pos_passable’? [-Wimplicit-function-declaration]
+   57 |         if(state->input_move != MOVE_NONE && move_passable(game, hannah, state->input_move)) {
+      |                                              ^~~~~~~~~~~~~
+      |                                              pos_passable
+code/mode_game.c:58:13: error: implicit declaration of function ‘entity_move_direction’ [-Wimplicit-function-declaration]
+   58 |             entity_move_direction(state, hannah, state->input_move);
+      |             ^~~~~~~~~~~~~~~~~~~~~
+code/mode_game.c:60:21: error: ‘platform’ undeclared (first use in this function)
+   60 |             Entity* platform = try_platform_was_at_pos(game, hannah->pos_cur);
+      |                     ^~~~~~~~
+code/mode_game.c:62:17: error: implicit declaration of function ‘entity_move_position’ [-Wimplicit-function-declaration]
+   62 |                 entity_move_position(state, hannah, platform->pos_cur);
+      |                 ^~~~~~~~~~~~~~~~~~~~
+code/mode_game.c:67:33: error: ‘LevelState’ has no member named ‘all_ducks_len’
+   67 |         for(i32 i = 0; i < state->all_ducks_len; i++) {
+      |                                 ^~
+code/mode_game.c:68:21: error: ‘duck’ undeclared (first use in this function)
+   68 |             Entity* duck = &state->ducks[i];
+      |                     ^~~~
+code/mode_game.c:68:34: error: ‘LevelState’ has no member named ‘ducks’
+   68 |             Entity* duck = &state->ducks[i];
+      |                                  ^~
+code/mode_game.c:79:25: error: ‘LevelState’ has no member named ‘active_ducks_len’
+   79 |             if(i < state->active_ducks_len) {
+      |                         ^~
+In file included from code/game.c:137:
+code/level_logic.c: In function ‘pre_update_level_logic’:
+code/level_logic.c:16:18: error: ‘LevelState’ has no member named ‘logic_entities_len’
+   16 |             state->logic_entities_len = 1;
+      |                  ^~
+code/level_logic.c:17:21: error: ‘platform’ undeclared (first use in this function)
+   17 |             Entity* platform = &state->logic_entities[0];
+      |                     ^~~~~~~~
+code/level_logic.c:17:38: error: ‘LevelState’ has no member named ‘logic_entities’
+   17 |             Entity* platform = &state->logic_entities[0];
+      |                                      ^~
+code/game.c: In function ‘game_init’:
+code/game.c:154:14: error: ‘LevelState’ has no member named ‘all_ducks_len’
+  154 |         state->all_ducks_len = 0;
+      |              ^~
+code/game.c:155:14: error: ‘LevelState’ has no member named ‘active_ducks_len’
+  155 |         state->active_ducks_len = 0;
+      |              ^~
+code/game.c:157:17: error: ‘entity’ undeclared (first use in this function); did you mean ‘Entity’?
+  157 |         Entity* entity = &state->marchers[i];
+      |                 ^~~~~~
+      |                 Entity
+code/game.c:157:32: error: ‘LevelState’ has no member named ‘marchers’
+  157 |         Entity* entity = &state->marchers[i];
+      |                                ^~
+Dynamic build command unsuccessful.
+make: *** [Makefile:9: program] Error 1
