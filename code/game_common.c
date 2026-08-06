@@ -103,8 +103,6 @@ void entity_move_position(LevelState* state, Entity* entity, iv2 position) {
 
     // VOLATILE: If an entity in the active set has called this function, it is
     // assumed to be updating the chain.
-    // NOW: Should chain forget (fill buffer with copies) everything when a loop
-    //      occurs?
     if(entity_is_active_marcher(entity, state)) {
         state->move_chain[real_chain_index(state, entity->chain_index)] = index_from_pos(position);
     }
