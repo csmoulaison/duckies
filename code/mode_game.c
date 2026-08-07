@@ -1,7 +1,7 @@
 iv2 debug_circle_pos   = {};
 iv2 debug_circle_pos_2 = {};
 
-void update_marcher_with_moving_platforms(LevelState* state, Entity* marcher, Entity* marcher_follower) {
+void update_marcher_with_moving_platforms(LevelState* state, Entity* marcher, Entity* marcher_follower, bool is_hannah) {
     // RELEASE: remove this loop, just to make sure platforms aren't in same
     // spot.
     for(i32 i = 0; i < state->logic_entities_len; i++) {
@@ -35,12 +35,27 @@ void update_marcher_with_moving_platforms(LevelState* state, Entity* marcher, En
                 should_move_marcher = true;
             }
         }
+
         if(should_move_marcher) {
-            iv2 original_delta = iv2_sub(marcher->pos_lead, marcher->pos_cur);
-            entity_move(marcher, platform->move_this_cycle);
-            if(marcher_follower != NULL) {
-                if(iv2_eq(marcher->pos_cur, marcher_follower->pos_cur)) {
-                    marcher->pos_lead = iv2_add(marcher->pos_cur, original_delta);
+            if(is_hannah) {
+                iv2 original_delta = iv2_sub(state->hannah_pos_lead_prev, marcher->pos_prev);
+                if(marcher->move_this_cycle == platform->move_this_cycle) {
+                    if(marcher_follower != NULL) {
+                        //iv2 pos_after_move = pos_after_direction(marcher, platform->move_this_cycle);
+                        if(iv2_eq(marcher->pos_cur, marcher_follower->pos_cur)) {
+                            //entity_move(marcher, platform->move_this_cycle);
+                            marcher->pos_lead = iv2_add(marcher->pos_cur, original_delta);
+                        }
+                    }
+                }
+            } else {
+                iv2 original_delta = iv2_sub(marcher->pos_lead, marcher->pos_cur);
+                if(marcher_follower != NULL) {
+                    iv2 new_pos = pos_after_direction(marcher, platform->move_this_cycle);
+                    if(iv2_eq(new_pos, marcher_follower->pos_cur)) {
+                        entity_move(marcher, platform->move_this_cycle);
+                        marcher->pos_lead = iv2_add(marcher->pos_cur, original_delta);
+                    }
                 }
             }
             return;
@@ -111,16 +126,27 @@ void mode_game_update(Game* game, DrawList* draw_list, Audio* audio, f32 dt) {
 
         // Hannah moves if applicable
         if(state->input_move != MOVE_NONE) {
+            state->hannah_pos_lead_prev = hannah->pos_lead;
             entity_move(hannah, state->input_move);
         }
         Entity* hannah_follower = NULL;
         if(ducks_len(state) > 0) {
             hannah_follower = &state->ducks[0];
         }
-        update_marcher_with_moving_platforms(state, hannah, hannah_follower);
+        update_marcher_with_moving_platforms(state, hannah, hannah_follower, true);
         state->input_move = MOVE_NONE;
 
         // Smart(ish) ducks follow the leader
+        // NOW: Ducks follow best path by the following:
+        // 
+        // 1. Do any of my moves put me at my leader's pos_lead? Do that.
+        // 
+        // 3. If not, do any of my moves put me one square away from my leader's
+        //    pos_cur? Do that.
+        //    
+        // 2. If not, I am going to lose next turn, but I go in whichever
+        //    direction puts me closest to the leader's pos_cur.
+        //    
         for(i32 i = 0; i < ducks_len(state); i++) {
             Entity* duck   = &state->ducks[i];
             Entity* leader = &state->ducks[i - 1];
@@ -128,28 +154,46 @@ void mode_game_update(Game* game, DrawList* draw_list, Audio* audio, f32 dt) {
             if(i < ducks_len(state) - 1) {
                 follower = &state->ducks[i + 1];
             }
-            MoveDirection follow_move = direction_from_target(duck, leader->pos_lead);
 
-            // Simulate the moving of platforms on both staying put and
-            // following the leader, choosing the one which places the duck
-            // closer to the leader's previous position.
-            Entity follow_sim_duck = *duck;
-            entity_move(&follow_sim_duck, follow_move);
-            update_marcher_with_moving_platforms(state, &follow_sim_duck, follower);
+            // Simulate all possible moves
+            MoveDirection best_move = -1;
+            Entity sim_ducks[5];
+            for(MoveDirection move = 0; move < 5; move++) {
+                Entity* sim_duck = &sim_ducks[move];
+                *sim_duck = *duck;
+                if(move != MOVE_NONE) {
+                    entity_move(sim_duck, move);
+                }
+                update_marcher_with_moving_platforms(state, sim_duck, follower, false);
 
-            Entity stay_sim_duck = *duck;
-            update_marcher_with_moving_platforms(state, &stay_sim_duck, follower);
-
-            // The distance check should work for choosing not to follow leader
-            // because we are already next to him and he hasn't moved, but if
-            // for some reason there's some hole in this logic, we just need to
-            // check for it explicitly.
-            if(iv2_distance(follow_sim_duck.pos_cur, leader->pos_prev) < iv2_distance(stay_sim_duck.pos_cur, leader->pos_prev)) {
-                entity_move(duck, follow_move);
+                if(iv2_eq(leader->pos_lead, sim_duck->pos_cur)) {
+                    best_move = move;
+                    break;
+                }
             }
+
+            if(i == 0) {
+                debug_circle_pos = leader->pos_lead;
+            }
+            f32 best_losing_dist = 10000.0;
+            if(best_move == -1) {
+                for(MoveDirection move = 0; move < 5; move++) {
+                    Entity* sim_duck = &sim_ducks[move];
+                    f32 dist = iv2_distance(leader->pos_lead, sim_duck->pos_cur);
+                    if(dist == 1.0) {
+                        best_move = move;
+                        break;
+                    }
+                    if(dist < best_losing_dist) {
+                        best_losing_dist = dist;
+                        best_move = move;
+                    }
+                }
+            }
+            entity_move(duck, best_move);
             if(duck->move_this_cycle == MOVE_LEFT)  duck->sprite_handle = SPRITE_DUCK_LEFT;
             if(duck->move_this_cycle == MOVE_RIGHT) duck->sprite_handle = SPRITE_DUCK_RIGHT;
-            update_marcher_with_moving_platforms(state, duck, follower);
+            update_marcher_with_moving_platforms(state, duck, follower, false);
         }
     }
 
@@ -157,8 +201,9 @@ void mode_game_update(Game* game, DrawList* draw_list, Audio* audio, f32 dt) {
     update_visual_state(game, draw_list, dt);
 
     // Debug circle
-    debug_circle_pos = state->logic_entities[0].pos_cur;
-    draw_sprite_animated(draw_list, SPRITE_DEBUG_CIRCLE, (game->time * 2.0), v2_scale(v2_from_iv2(debug_circle_pos), 8.0f), 0);
+    //debug_circle_pos = state->logic_entities[0].pos_cur;
+    //debug_circle_pos = hannah->pos_lead;
+    //draw_sprite_animated(draw_list, SPRITE_DEBUG_CIRCLE, (game->time * 2.0), v2_scale(v2_from_iv2(debug_circle_pos), 8.0f), 0);
     //draw_sprite_animated(draw_list, SPRITE_DEBUG_CIRCLE, ((game->time + 1.0) * 2.0f), v2_scale(v2_from_iv2(debug_circle_pos_2), 8.0f), 0);
 
 	if(input_button_pressed(game->input_buttons[BUTTON_EDITOR])) {

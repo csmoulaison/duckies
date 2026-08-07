@@ -327,6 +327,17 @@ void update_music_state(Game* game, Audio* audio, f32 dt) {
         noise->amp += 0.02f + move_t * 0.10f;
     }
 
+    if(game->debug_stepping && game->new_cycle_queued) {
+        bass->amp   = 0.0;
+        melody->amp = 0.0;
+        noise->amp  = 0.0;
+        if(state->input_move != MOVE_NONE || input_button_pressed(game->input_buttons[BUTTON_EDITOR_PLACE])) {
+            game->new_cycle_queued = false;
+            game->new_cycle_this_frame = true;
+        }
+        return;
+    }
+
     i64 t_old = (i64)(game->time * 2.0f);
 	game->time += TIME_SCALE * dt;
     i64 t_new = (i64)(game->time * 2.0f);
@@ -336,7 +347,12 @@ void update_music_state(Game* game, Audio* audio, f32 dt) {
             if(game->mode == MODE_GAME) {
                 game->state.cycle_index++;
             }
-            game->new_cycle_this_frame = true;
+
+            if(game->debug_stepping) {
+                game->new_cycle_queued = true;
+            } else {
+                game->new_cycle_this_frame = true;
+            }
             game->half_cycle_this_frame = false;
             hannah_moved_this_cycle = false;
             game->cycle_stage_counter = 0;

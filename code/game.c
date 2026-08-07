@@ -40,11 +40,11 @@ char* asset_pack_data = NULL;
 #define STARTING_DUCKS     1
 
 typedef enum {
-    MOVE_NONE = 0,
-    MOVE_UP,
-    MOVE_LEFT,
-    MOVE_DOWN,
-    MOVE_RIGHT,
+    MOVE_NONE  = 0,
+    MOVE_UP    = 1,
+    MOVE_LEFT  = 2,
+    MOVE_DOWN  = 3,
+    MOVE_RIGHT = 4
 } MoveDirection;
 
 typedef enum {
@@ -82,6 +82,7 @@ typedef enum {
 
 typedef struct {
     MoveDirection input_move;
+    iv2           hannah_pos_lead_prev; // kinda crazy, but needed for moving platform decisions
     u8            logic_data[LOGIC_DATA_SIZE];
     Entity        logic_entities[LOGIC_ENTITIES_MAX];
     i32           logic_entities_len;
@@ -113,6 +114,10 @@ typedef struct {
     bool             new_cycle_this_frame;
     bool             half_cycle_this_frame;
 	InputButtonState input_buttons[BUTTON_COUNT];
+
+	// Debugging
+	bool             debug_stepping;
+	i32              new_cycle_queued;
 
     // Level reset mode
     f32              level_reset_t;
@@ -179,6 +184,8 @@ GAME_UPDATE(game_update) {
 	game->input_buttons[BUTTON_QUIT]         = input_update_key_button(events, events_len, game->input_buttons[BUTTON_QUIT],         KEYCODE_ESCAPE);
 	game->input_buttons[BUTTON_EDITOR]       = input_update_key_button(events, events_len, game->input_buttons[BUTTON_EDITOR],       KEYCODE_TAB);
 	game->input_buttons[BUTTON_EDITOR_PLACE] = input_update_key_button(events, events_len, game->input_buttons[BUTTON_EDITOR_PLACE], KEYCODE_SPACE);
+
+	game->debug_stepping = false;
 
     pre_update_level_logic(game, &frame_stack);
 	switch(game->mode) {

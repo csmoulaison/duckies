@@ -13,29 +13,40 @@ i32 platform_x_back_forth_sequence(
     i32 index_offset, 
     Stack* stack)
 {
-    i32 len = (((x2 - x1 + 1) * 2) - 1) * per_step_count + ((per_end_count - 1) * 2);
+    i32 steps_one_way = x2 - x1 - 1;
+    i32 steps_both_ways = (steps_one_way + steps_one_way);
+    i32 extra_end_steps = (per_end_count) * 2;
+    i32 len = steps_both_ways * per_step_count + extra_end_steps;
+    //printf("one %d both %d extra %d\n", steps_one_way, steps_both_ways, extra_end_steps);
+    
     iv2* positions = (iv2*)stack_alloc(stack, len * sizeof(iv2));
     {
-        i32 i;
-        for(i = 0; i < per_end_count - 1; i++) {
+        i32 i = 0;
+        for(i32 e = 0; e < per_end_count; e++) {
+            //printf("  e1: %d\n", i);
             positions[(i + index_offset) % len] = iv2_new(x1, y);
+            i++;
         }
-        for(i32 x = x1; x <= x2; x++) {
+        for(i32 x = x1 + 1; x < x2; x++) {
             for(i32 j = 0; j < per_step_count; j++) {
+                //printf("  x1 %d: %d\n", j, i);
                 positions[(i + index_offset) % len] = iv2_new(x, y);
                 i++;
             }
         }
-        for(i = i; i < per_end_count - 1; i++) {
+        for(i32 e = 0; e < per_end_count; e++) {
+            //printf("  e2: %d\n", i);
             positions[(i + index_offset) % len] = iv2_new(x2, y);
+            i++;
         }
-        for(i32 x = x2; x > x1; x--) {
+        for(i32 x = x2 - 1; x > x1; x--) {
             for(i32 j = 0; j < per_step_count; j++) {
+                //printf("  x2 %d: %d\n", j, i);
                 positions[(i + index_offset) % len] = iv2_new(x, y);
                 i++;
             }
         }
-        printf("i %d len %d\n", i, len);
+        //printf("i %d len %d\n", i, len);
         assert(i == len);
     }
 
@@ -91,8 +102,8 @@ void pre_update_level_logic(Game* game, Stack* stack) {
     state->logic_entities_len = 0;
     switch(game->level_index) {
         case 0: {
-            i32 len = platform_run_x_back_forth_sequence(game, 3, 0, 5, 4, 1, 1, 2, stack);
-                      platform_run_x_back_forth_sequence(game, 3, 0, 5, 3, 1, 2, len / 2, stack);
+            i32 len = platform_run_x_back_forth_sequence(game, 3, 0, 5, 4, 2, 2, 2, stack);
+                      platform_run_x_back_forth_sequence(game, 3, 0, 5, 3, 2, 2, 6, stack);
         } break;
         default: break;
     }
