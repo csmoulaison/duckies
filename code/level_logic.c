@@ -62,10 +62,12 @@ i32 platform_x_back_forth_sequence(
         platform->pos_cur = target;
         platform->pos_prev = target;
         platform->pos_prev_visible = v2_from_iv2(target);
-    } else if(!iv2_eq(platform->pos_cur, target) && game->new_cycle_this_frame) {
-        entity_move(platform, direction_from_target(platform, target));
-    } else {
-        platform->move_this_cycle = MOVE_NONE;
+    } else if(game->new_cycle_this_frame) {
+        if(!iv2_eq(platform->pos_cur, target)) {
+            entity_move(platform, direction_from_target(platform, target));
+        } else {
+            platform->move_this_cycle = MOVE_NONE;
+        }
     }
     platform->sprite_handle = SPRITE_LILY;
     platform->logic_type = LOGIC_MOVING_PLATFORM;
@@ -102,8 +104,8 @@ void pre_update_level_logic(Game* game, Stack* stack) {
     state->logic_entities_len = 0;
     switch(game->level_index) {
         case 0: {
-            i32 len = platform_run_x_back_forth_sequence(game, 3, 0, 5, 4, 2, 2, 2, stack);
-                      platform_run_x_back_forth_sequence(game, 3, 0, 5, 3, 2, 2, 6, stack);
+            i32 len = platform_run_x_back_forth_sequence(game, 3, 0, 5, 4, 2, 2, 0, stack);
+                      platform_run_x_back_forth_sequence(game, 3, 0, 5, 3, 2, 2, 2, stack);
         } break;
         default: break;
     }

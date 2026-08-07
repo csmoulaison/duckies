@@ -17,6 +17,12 @@ void update_marcher_with_moving_platforms(LevelState* state, Entity* marcher, En
         }
     }
 
+    // NOW: TO summarize, so we can clarify this algorithm
+    // If hannah
+    // - If have not moved and on platform, automatically move the direction of
+    //   platform (DO THIS AFTER REORDERING)
+    // - If 
+
     bool should_move_marcher = false;
     for(i32 i = 0; i < state->logic_entities_len; i++) {
         Entity* platform = &state->logic_entities[i];
@@ -24,17 +30,26 @@ void update_marcher_with_moving_platforms(LevelState* state, Entity* marcher, En
             continue;
         }
 
+        bool marcher_h_axis  = (marcher->move_this_cycle  == MOVE_LEFT || marcher->move_this_cycle  == MOVE_RIGHT);
+        bool platform_h_axis = (platform->move_this_cycle == MOVE_LEFT || platform->move_this_cycle == MOVE_RIGHT);
+        bool same_axis       = (marcher_h_axis == platform_h_axis);
+
         if(iv2_eq(platform->pos_prev, marcher->pos_cur)) {
             if(marcher->move_this_cycle == MOVE_NONE) {
                 should_move_marcher = true;
             } 
         } else if(iv2_eq(platform->pos_prev, marcher->pos_prev) && marcher->move_this_cycle != MOVE_NONE) {
-            bool marcher_h_axis  = (marcher->move_this_cycle  == MOVE_LEFT || marcher->move_this_cycle  == MOVE_RIGHT);
-            bool platform_h_axis = (platform->move_this_cycle == MOVE_LEFT || platform->move_this_cycle == MOVE_RIGHT);
-            if(marcher_h_axis == platform_h_axis && platform->move_this_cycle != MOVE_NONE) {
+            if(same_axis && platform->move_this_cycle != MOVE_NONE) {
                 should_move_marcher = true;
             }
         }
+
+        if(is_hannah && marcher->move_this_cycle == MOVE_NONE) {
+            if(iv2_eq(platform->pos_prev, marcher->pos_cur)) {
+                entity_move(marcher, platform->move_this_cycle);
+            }
+        }
+
 
         if(should_move_marcher) {
             if(is_hannah) {
@@ -128,6 +143,9 @@ void mode_game_update(Game* game, DrawList* draw_list, Audio* audio, f32 dt) {
         if(state->input_move != MOVE_NONE) {
             state->hannah_pos_lead_prev = hannah->pos_lead;
             entity_move(hannah, state->input_move);
+            state->hannah_manual_moved_this_cycle = true;
+        } else {
+            state->hannah_manual_moved_this_cycle = false;
         }
         Entity* hannah_follower = NULL;
         if(ducks_len(state) > 0) {

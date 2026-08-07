@@ -83,6 +83,7 @@ typedef enum {
 typedef struct {
     MoveDirection input_move;
     iv2           hannah_pos_lead_prev; // kinda crazy, but needed for moving platform decisions
+    bool          hannah_manual_moved_this_cycle;
     u8            logic_data[LOGIC_DATA_SIZE];
     Entity        logic_entities[LOGIC_ENTITIES_MAX];
     i32           logic_entities_len;

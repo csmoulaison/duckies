@@ -293,7 +293,8 @@ void update_music_state(Game* game, Audio* audio, f32 dt) {
 
 	f32 i_phase = (f32)((i64)(game->time * 36.0f) % 12) / 12.0f;
 	i32 i = ((i64)(game->time * 3.0f) % 48);
-	bool hannah_moved_this_cycle = (state->hannah.move_this_cycle != MOVE_NONE);
+	//bool hannah_moved_this_cycle = (state->hannah.move_this_cycle != MOVE_NONE);
+	bool hannah_moved_this_cycle = state->hannah_manual_moved_this_cycle;
 
     f32 melody_vibrato = 3.0f;
     f32 melody_amp = 0.0f;
@@ -327,6 +328,23 @@ void update_music_state(Game* game, Audio* audio, f32 dt) {
         noise->amp += 0.02f + move_t * 0.10f;
     }
 
+    // Moving platform soundss
+    bool moving_platform_this_cycle = false;
+    for(i32 i = 0; i < state->logic_entities_len; i++) {
+        Entity* platform = &state->logic_entities[i];
+        if(platform->logic_type != LOGIC_MOVING_PLATFORM) continue;
+        if(platform->move_this_cycle != MOVE_NONE) {
+            moving_platform_this_cycle = true;
+        }
+    }
+    AudioWaveChannel* sfx = &audio->wave_channels[2];
+    if(moving_platform_this_cycle && move_t < 0.25) {
+        sfx->amp  = 0.22 + move_t * 0.30;
+        sfx->freq = 150.0 + 600.0 * move_t;
+    } else {
+        sfx->amp = 0.0;
+    }
+
     if(game->debug_stepping && game->new_cycle_queued) {
         bass->amp   = 0.0;
         melody->amp = 0.0;
@@ -354,7 +372,7 @@ void update_music_state(Game* game, Audio* audio, f32 dt) {
                 game->new_cycle_this_frame = true;
             }
             game->half_cycle_this_frame = false;
-            hannah_moved_this_cycle = false;
+            state->hannah_manual_moved_this_cycle = false;
             game->cycle_stage_counter = 0;
         } else if(game->cycle_stage_counter <= 1) {
             game->half_cycle_this_frame = true;
