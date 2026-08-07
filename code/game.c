@@ -30,7 +30,7 @@ char* asset_pack_data = NULL;
 
 #define DUCKS_MAX          16
 #define MARCHERS_MAX       1 + DUCKS_MAX
-#define LOGIC_ENTITIES_MAX 32
+#define LOGIC_ENTITIES_MAX 64
 
 #define TIME_SCALE         1.25f
 #define MOVE_QUEUE_MAX     64
@@ -57,6 +57,7 @@ typedef struct {
     u64           sprite_handle;
     iv2           pos_cur;
     iv2           pos_prev;
+    iv2           pos_lead;
     v2            pos_visible;
     v2            pos_prev_visible;
     f32           pos_t;
@@ -84,6 +85,7 @@ typedef struct {
     u8            logic_data[LOGIC_DATA_SIZE];
     Entity        logic_entities[LOGIC_ENTITIES_MAX];
     i32           logic_entities_len;
+    i32           cycle_index;
 
     union {
         Entity marchers[MARCHERS_MAX]; // ducks and hannah
@@ -140,11 +142,12 @@ GAME_INIT(game_init) {
 	// setup entities. later, there will be structs for each type that reference
 	// entity indices. A subservient tool.
 	LevelState* state = &game->state;
-	state->marchers_len = STARTING_DUCKS + 1;
+	state->marchers_len = STARTING_DUCKS + 2;
 	for(i32 i = 0; i < state->marchers_len; i++) {
     	Entity* entity = &state->marchers[i];
-    	entity->pos_cur = iv2_new(3 - i, 1);
-    	entity->pos_prev = entity->pos_cur;
+    	entity->pos_cur = iv2_new(2 - i, 1);
+    	entity->pos_prev = iv2_new(2 - i - 1, 1);
+    	entity->pos_lead = entity->pos_prev;
     	entity->pos_visible = v2_from_iv2(entity->pos_cur);
     	entity->pos_prev_visible = v2_from_iv2(entity->pos_prev);
     	if(i == 0) {
@@ -162,6 +165,7 @@ GAME_INIT(game_init) {
 
 GAME_UPDATE(game_update) {
 	Game* game = (Game*)game_memory;
+	Stack frame_stack = stack_from_memory(game_memory + sizeof(Game), MEGABYTE / 2, string_const("GameFrame"));
 
 	input_clear_buttons(game->input_buttons, BUTTON_COUNT);
 	input_release_buttons_if_window_defocused(events, events_len, game->input_buttons, BUTTON_COUNT);
@@ -176,7 +180,7 @@ GAME_UPDATE(game_update) {
 	game->input_buttons[BUTTON_EDITOR]       = input_update_key_button(events, events_len, game->input_buttons[BUTTON_EDITOR],       KEYCODE_TAB);
 	game->input_buttons[BUTTON_EDITOR_PLACE] = input_update_key_button(events, events_len, game->input_buttons[BUTTON_EDITOR_PLACE], KEYCODE_SPACE);
 
-    pre_update_level_logic(game);
+    pre_update_level_logic(game, &frame_stack);
 	switch(game->mode) {
     	case MODE_GAME: {
         	mode_game_update(game, draw_list, audio, dt);

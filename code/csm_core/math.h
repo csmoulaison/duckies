@@ -34,11 +34,12 @@ typedef struct {
 } iv2;
 
 // Scalar
-static inline f32 min(f32 a, f32 b);
-static inline f32 max(f32 a, f32 b);
-static inline f32 clamp(f32 v, f32 min, f32 max);
-static inline f32 move_to_zero(f32 value, f32 amount);
-static inline f32 lerp(f32 a, f32 b, f32 t);
+static inline bool within_epsilon(f32 a, f32 b, f32 e);
+static inline f32  min(f32 a, f32 b);
+static inline f32  max(f32 a, f32 b);
+static inline f32  clamp(f32 v, f32 min, f32 max);
+static inline f32  move_to_zero(f32 value, f32 amount);
+static inline f32  lerp(f32 a, f32 b, f32 t);
 // IVector2
 static inline iv2  iv2_new(i32 x, i32 y);
 static inline bool iv2_eq(iv2 a, iv2 b);
@@ -106,6 +107,10 @@ void quat_mult(f32* r, f32* s, f32* res);
 void quat_inverse(f32* q, f32* res);
 
 #ifdef CSM_IMPLEMENTATION
+
+static inline bool within_epsilon(f32 a, f32 b, f32 e) {
+    return (abs(a - b) <= e);
+}
 
 static inline f32 min(f32 a, f32 b) {
 	if(a > b) return b;

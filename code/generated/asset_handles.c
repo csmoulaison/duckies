@@ -31,7 +31,7 @@
 
 u64 texture_data_offsets[TEXTURE_COUNT] = {
     0,
-    67360
+    67264
 };
 
 TextureData* texture_asset(char* pack, u64 handle) {
@@ -41,21 +41,21 @@ TextureData* texture_asset(char* pack, u64 handle) {
 u64 sprite_data_offsets[SPRITE_COUNT] = {
     65568,
     65632,
-    65760,
-    65936,
-    66048,
-    66176,
-    66240,
-    66320,
-    66416,
-    66528,
-    66656,
-    66784,
-    66848,
+    65744,
+    65920,
+    66032,
+    66144,
+    66208,
+    66288,
+    66384,
+    66496,
+    66624,
+    66736,
+    66800,
+    66912,
     66976,
     67040,
-    67104,
-    67232
+    67152
 };
 
 SpriteData* sprite_asset(char* pack, u64 handle) {
@@ -63,7 +63,7 @@ SpriteData* sprite_asset(char* pack, u64 handle) {
 }
 
 u64 primitive_2d_data_offsets[PRIMITIVE_2D_COUNT] = {
-    67648
+    67552
 };
 
 Primitive2dData* primitive_2d_asset(char* pack, u64 handle) {
@@ -71,7 +71,7 @@ Primitive2dData* primitive_2d_asset(char* pack, u64 handle) {
 }
 
 u64 world_data_offsets[WORLD_COUNT] = {
-    67712
+    67616
 };
 
 World* world_asset(char* pack, u64 handle) {

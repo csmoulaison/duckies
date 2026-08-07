@@ -66,13 +66,15 @@ iv2 pos_after_direction(Entity* entity, MoveDirection dir) {
     return pos;
 }
 
-void entity_move(LevelState* state, Entity* entity, MoveDirection move) {
+// This is used for simulation as well, so shold never use state.
+void entity_move(Entity* entity, MoveDirection move) {
     if(move == MOVE_NONE) {
         return;
     }
 
     iv2 pos = pos_after_direction(entity, move);
     entity->pos_prev = entity->pos_cur;
+    entity->pos_lead = entity->pos_prev;
     entity->pos_cur = pos;
     entity->pos_t = 0.0f;
     entity->move_this_cycle = move;
@@ -135,8 +137,8 @@ void draw_entity(DrawList* draw_list, Entity* entity, f32 time, f32 dt, i32 pale
     v2 lerped_pos = v2_new(
         lerp(entity->pos_prev_visible.x, entity->pos_cur.x, entity->pos_t) * 8.0f,
         lerp(entity->pos_prev_visible.y, entity->pos_cur.y, entity->pos_t) * 8.0f);
-	entity->pos_visible = v2_lerp(entity->pos_visible, lerped_pos, 24.0f * dt);
-    draw_sprite_animated(draw_list, entity->sprite_handle, (time + entity->anim_offset_t) * 0.5f, entity->pos_visible, palette);
+	//entity->pos_visible = v2_lerp(entity->pos_visible, lerped_pos, 24.0f * dt);
+    draw_sprite_animated(draw_list, entity->sprite_handle, (time + entity->anim_offset_t) * 0.5f, lerped_pos, palette);
     //draw_sprite_animated(draw_list, SPRITE_DEBUG_CIRCLE, (time * 2.0f), v2_scale(v2_from_iv2(entity->pos_prev), 8.0f), 0);
 
     // Use below for cur pos instead of visible
@@ -293,10 +295,10 @@ void update_music_state(Game* game, Audio* audio, f32 dt) {
 	i32 i = ((i64)(game->time * 3.0f) % 48);
 	bool hannah_moved_this_cycle = (state->hannah.move_this_cycle != MOVE_NONE);
 
-    f32 melody_vibrato = 8.0f;
+    f32 melody_vibrato = 3.0f;
     f32 melody_amp = 0.0f;
     if(hannah_moved_this_cycle) {
-        melody_vibrato = 4.0f;
+        melody_vibrato = 2.0f;
         melody_amp = 0.2f;
     } else {
         for(i32 i = 0; i < 48; i++) {
@@ -331,6 +333,9 @@ void update_music_state(Game* game, Audio* audio, f32 dt) {
     if((t_old % 2 == 0 && t_new % 2 == 1) || (t_old % 2 == 1 && t_new % 2 == 0)) {
         game->cycle_stage_counter++;
         if(game->cycle_stage_counter > 1) {
+            if(game->mode == MODE_GAME) {
+                game->state.cycle_index++;
+            }
             game->new_cycle_this_frame = true;
             game->half_cycle_this_frame = false;
             hannah_moved_this_cycle = false;
