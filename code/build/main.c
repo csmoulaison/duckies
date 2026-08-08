@@ -21,35 +21,17 @@
 #define PALETTE_COLOR_COUNT 16
 #define PALETTE_COUNT       4
 #define PALETTE_DATA_SIZE   (PALETTE_COLOR_COUNT * PALETTE_COUNT)
-//u32 palette_colors[PALETTE_COLOR_COUNT] = {
-//    0x00000000, //  0: Clear
-//    0xff863C7B, //  1: Purple (eyes, black)
-//    0xff2B92FB, //  2: Orange (hair, bill)
-//    0xffB4C6F4, //  3: Peach  (skin)
-//    0xffBF9562, //  4: Blue   (sweater)
-//    0xff62E7FF, //  5: Lellow (duck)
-//    0xff4ACC4F, //  6: Green  (grass)
-//    0xff20ad15, //  7: Dark G.
-//    0xffF300FF, //  8: undef
-//    0xffF300FF, //  9: undef
-//    0xffF300FF, // 10: undef
-//    0xffF300FF, // 11: undef
-//    0xffF300FF, // 12: undef
-//    0xffF300FF, // 13: undef
-//    0xffF300FF, // 14: undef
-//    0xffF300FF, // 15: undef
-//};
 u32 palette_colors[PALETTE_COLOR_COUNT] = {
     0x00000000, //  0: Clear
     0xff331133, //  1: Purple (eyes, black)
     0xff88aaff, //  2: Orange (hair, bill)
     0xffc4d4f4, //  3: Peach  (skin)
-    0xffffaa88, //  4: Blue   (sweater)
+    0xffee8866, //  4: Blue   (sweater)
     0xff88ffff, //  5: Lellow (duck)
     0xff66ff88, //  6: Green  (grass)
-    0xff88ff88, //  7: Dark G.
-    0xffF300FF, //  8: undef
-    0xffF300FF, //  9: undef
+    0xff33dd55, //  7: Dark G. (grass2)
+    0xff000000, //  8: Black
+    0xffFFFFFF, //  9: White
     0xffF300FF, // 10: undef
     0xffF300FF, // 11: undef
     0xffF300FF, // 12: undef
@@ -58,10 +40,10 @@ u32 palette_colors[PALETTE_COLOR_COUNT] = {
     0xffF300FF, // 15: undef
 };
 u32 palette_indices[PALETTE_DATA_SIZE] = {
-    0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15,
-    0,  1,  2,  3,  4,  4,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15,
-    0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15,
-    0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15,
+    0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15, // reg
+    0,  8,  1,  2,  1,  2,  7,  8,  1,  1, 1,  1,  1,  1,  1,  1,  // dark
+    0,  8,  8,  8,  8,  8,  8,  8,  8,  8, 8,  8,  8,  8,  8,  8,  // black
+    0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15, // white re yello
 };
 
 i32 main(i32 argc, char** argv) {

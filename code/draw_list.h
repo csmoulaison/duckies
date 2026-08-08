@@ -1,7 +1,7 @@
 #ifndef draw_list_h_INCLUDED
 #define draw_list_h_INCLUDED
 
-#define DRAW_MAX_SPRITES      128
+#define DRAW_MAX_SPRITES      256
 #define LOGICAL_WINDOW_WIDTH  64
 #define LOGICAL_WINDOW_HEIGHT 64
 
@@ -23,6 +23,7 @@ typedef struct {
 
     // cheeky state
     bool       minified;
+    i32        palette_override_index;
 } DrawList;
 
 void draw_init_list(DrawList* list, iv2 window_size) {

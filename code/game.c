@@ -26,18 +26,16 @@ char* asset_pack_data = NULL;
 
 #endif
 
-#include "music.c"
+#define DUCKS_MAX       16
+#define MARCHERS_MAX    1 + DUCKS_MAX
+#define PLATFORMS_MAX   64
 
-#define DUCKS_MAX          16
-#define MARCHERS_MAX       1 + DUCKS_MAX
-#define LOGIC_ENTITIES_MAX 64
+#define TIME_SCALE      1.25f
+#define MOVE_QUEUE_MAX  64
+#define LOGIC_DATA_SIZE 256
+#define MOVE_CHAIN_SIZE 256
 
-#define TIME_SCALE         1.25f
-#define MOVE_QUEUE_MAX     64
-#define LOGIC_DATA_SIZE    256
-#define MOVE_CHAIN_SIZE    256
-
-#define STARTING_DUCKS     1
+#define STARTING_DUCKS  1
 
 typedef enum {
     MOVE_NONE  = 0,
@@ -48,24 +46,23 @@ typedef enum {
 } MoveDirection;
 
 typedef enum {
-    LOGIC_NONE = 0,
-    LOGIC_MOVING_PLATFORM,
-} LogicEntityType;
+    PLATFORM_FLOAT,
+    PLATFORM_WARN,
+    PLATFORM_SINK
+} PlatformSinkState;
 
-// Must never have an unstable reference
 typedef struct {
-    u64           sprite_handle;
-    iv2           pos_cur;
-    iv2           pos_prev;
-    iv2           pos_lead;
-    v2            pos_visible;
-    v2            pos_prev_visible;
-    f32           pos_t;
-    f32           anim_offset_t;
-    MoveDirection move_this_cycle;
-    MoveDirection pulled_move_this_cycle;
-    // Used by logic entities
-    i32           logic_type;
+    u64               sprite_handle;
+    iv2               pos_cur;
+    iv2               pos_prev;
+    iv2               pos_lead;
+    v2                pos_visible;
+    v2                pos_prev_visible;
+    f32               pos_t;
+    f32               anim_offset_t;
+    MoveDirection     move_this_cycle;
+    MoveDirection     pulled_move_this_cycle;
+    PlatformSinkState sink_state;
 } Entity;
 
 typedef struct {
@@ -75,18 +72,21 @@ typedef struct {
 } Editor;
 
 typedef enum {
-    MODE_GAME = 0,
+    MODE_MENU,
+    MODE_MENU_TO_GAME,
+    MODE_GAME,
     MODE_LEVEL_RESET,
-    MODE_EDITOR
+    MODE_EDITOR,
 } GameMode;
 
+// Must never contain unstable references, because reloads are just a memcpy.
 typedef struct {
     MoveDirection input_move;
     iv2           hannah_pos_lead_prev; // kinda crazy, but needed for moving platform decisions
     bool          hannah_manual_moved_this_cycle;
     u8            logic_data[LOGIC_DATA_SIZE];
-    Entity        logic_entities[LOGIC_ENTITIES_MAX];
-    i32           logic_entities_len;
+    Entity        platforms[PLATFORMS_MAX];
+    i32           platforms_len;
     i32           cycle_index;
 
     union {
@@ -120,15 +120,20 @@ typedef struct {
 	bool             debug_stepping;
 	i32              new_cycle_queued;
 
-    // Level reset mode
+    // Misc mode data
     f32              level_reset_t;
+    f32              transition_t;
 
     // Editor mode
     Editor           editor;
 } Game;
 
+#include "music.c"
 #include "game_common.c"
+#include "draw_game.c"
+#include "mode_menu.c"
 #include "mode_game.c"
+#include "mode_menu_to_game.c"
 #include "mode_level_reset.c"
 #include "editor.c"
 #include "level_logic.c"
@@ -145,10 +150,12 @@ GAME_INIT(game_init) {
 	game->world = &game->world_copy;
 #endif
 
+	game->new_cycle_this_frame = true;
+
 	// setup entities. later, there will be structs for each type that reference
 	// entity indices. A subservient tool.
 	LevelState* state = &game->state;
-	state->marchers_len = STARTING_DUCKS + 2;
+	state->marchers_len = STARTING_DUCKS + 1;
 	for(i32 i = 0; i < state->marchers_len; i++) {
     	Entity* entity = &state->marchers[i];
     	entity->pos_cur = iv2_new(2 - i, 1);
@@ -187,9 +194,16 @@ GAME_UPDATE(game_update) {
 	game->input_buttons[BUTTON_EDITOR_PLACE] = input_update_key_button(events, events_len, game->input_buttons[BUTTON_EDITOR_PLACE], KEYCODE_SPACE);
 
 	game->debug_stepping = false;
+	game->level_index = 2;
 
     pre_update_level_logic(game, &frame_stack);
 	switch(game->mode) {
+    	case MODE_MENU: {
+        	mode_menu_update(game, draw_list, audio, dt);
+    	} break;
+    	case MODE_MENU_TO_GAME: {
+        	mode_menu_to_game_update(game, draw_list, audio, dt);
+    	} break;
     	case MODE_GAME: {
         	mode_game_update(game, draw_list, audio, dt);
     	} break;
@@ -205,4 +219,5 @@ GAME_UPDATE(game_update) {
 
     update_music_state(game, audio, dt);
 	game->frames_since_init++;
+
 }

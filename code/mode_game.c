@@ -1,35 +1,23 @@
 iv2 debug_circle_pos   = {};
 iv2 debug_circle_pos_2 = {};
 
-void update_marcher_with_moving_platforms(LevelState* state, Entity* marcher, Entity* marcher_follower, bool is_hannah) {
+void update_marcher_with_platforms(LevelState* state, Entity* marcher, Entity* marcher_follower, bool is_hannah) {
     // RELEASE: remove this loop, just to make sure platforms aren't in same
     // spot.
-    for(i32 i = 0; i < state->logic_entities_len; i++) {
-        Entity* a = &state->logic_entities[i];
-        if(a->logic_type != LOGIC_MOVING_PLATFORM) continue;
-        for(i32 j = i + 1; j < state->logic_entities_len; j++) {
-            Entity* b = &state->logic_entities[j];
-            if(b->logic_type != LOGIC_MOVING_PLATFORM) continue;
+    for(i32 i = 0; i < state->platforms_len; i++) {
+        Entity* a = &state->platforms[i];
+        for(i32 j = i + 1; j < state->platforms_len; j++) {
+            Entity* b = &state->platforms[j];
             if(iv2_eq(a->pos_prev, b->pos_prev)) {
                 printf("platforms %d an %d share position of %d, %d\n", i, j, a->pos_prev);
-                panic();
+                //panic();
             }
         }
     }
 
-    // NOW: TO summarize, so we can clarify this algorithm
-    // If hannah
-    // - If have not moved and on platform, automatically move the direction of
-    //   platform (DO THIS AFTER REORDERING)
-    // - If 
-
     bool should_move_marcher = false;
-    for(i32 i = 0; i < state->logic_entities_len; i++) {
-        Entity* platform = &state->logic_entities[i];
-        if(platform->logic_type != LOGIC_MOVING_PLATFORM) {
-            continue;
-        }
-
+    for(i32 i = 0; i < state->platforms_len; i++) {
+        Entity* platform = &state->platforms[i];
         bool marcher_h_axis  = (marcher->move_this_cycle  == MOVE_LEFT || marcher->move_this_cycle  == MOVE_RIGHT);
         bool platform_h_axis = (platform->move_this_cycle == MOVE_LEFT || platform->move_this_cycle == MOVE_RIGHT);
         bool same_axis       = (marcher_h_axis == platform_h_axis);
@@ -133,6 +121,8 @@ void mode_game_update(Game* game, DrawList* draw_list, Audio* audio, f32 dt) {
 	}
 
     if(game->new_cycle_this_frame) {
+        // TODO: footstep puff fx
+
         // Reset previous visible position
         for(i32 i = 0; i < state->marchers_len; i++) {
             Entity* marcher = &state->marchers[i];
@@ -151,11 +141,11 @@ void mode_game_update(Game* game, DrawList* draw_list, Audio* audio, f32 dt) {
         if(ducks_len(state) > 0) {
             hannah_follower = &state->ducks[0];
         }
-        update_marcher_with_moving_platforms(state, hannah, hannah_follower, true);
+        update_marcher_with_platforms(state, hannah, hannah_follower, true);
         state->input_move = MOVE_NONE;
 
         // Smart(ish) ducks follow the leader
-        // NOW: Ducks follow best path by the following:
+        // Ducks follow best path by the following:
         // 
         // 1. Do any of my moves put me at my leader's pos_lead? Do that.
         // 
@@ -182,7 +172,7 @@ void mode_game_update(Game* game, DrawList* draw_list, Audio* audio, f32 dt) {
                 if(move != MOVE_NONE) {
                     entity_move(sim_duck, move);
                 }
-                update_marcher_with_moving_platforms(state, sim_duck, follower, false);
+                update_marcher_with_platforms(state, sim_duck, follower, false);
 
                 if(iv2_eq(leader->pos_lead, sim_duck->pos_cur)) {
                     best_move = move;
@@ -211,7 +201,7 @@ void mode_game_update(Game* game, DrawList* draw_list, Audio* audio, f32 dt) {
             entity_move(duck, best_move);
             if(duck->move_this_cycle == MOVE_LEFT)  duck->sprite_handle = SPRITE_DUCK_LEFT;
             if(duck->move_this_cycle == MOVE_RIGHT) duck->sprite_handle = SPRITE_DUCK_RIGHT;
-            update_marcher_with_moving_platforms(state, duck, follower, false);
+            update_marcher_with_platforms(state, duck, follower, false);
         }
     }
 
@@ -219,7 +209,7 @@ void mode_game_update(Game* game, DrawList* draw_list, Audio* audio, f32 dt) {
     update_visual_state(game, draw_list, dt);
 
     // Debug circle
-    //debug_circle_pos = state->logic_entities[0].pos_cur;
+    //debug_circle_pos = state->platforms[0].pos_cur;
     //debug_circle_pos = hannah->pos_lead;
     //draw_sprite_animated(draw_list, SPRITE_DEBUG_CIRCLE, (game->time * 2.0), v2_scale(v2_from_iv2(debug_circle_pos), 8.0f), 0);
     //draw_sprite_animated(draw_list, SPRITE_DEBUG_CIRCLE, ((game->time + 1.0) * 2.0f), v2_scale(v2_from_iv2(debug_circle_pos_2), 8.0f), 0);
