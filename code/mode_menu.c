@@ -1,3 +1,5 @@
+#define MENU_FADE_IN_TIME 0.5
+
 void draw_main_menu(Game* game, DrawList* draw_list, f32 dt) {
     // Tiles
     for(i32 y = 0; y < 10; y++) {
@@ -27,11 +29,30 @@ void draw_main_menu(Game* game, DrawList* draw_list, f32 dt) {
     f32 ysin = sin((game->time * M_PI) + 4) * 1.0;
     draw_sprite_animated(draw_list, SPRITE_DUCK_RIGHT, game->time * 0.5, v2_new(offx + (4 * font_sz), offy + font_sz + ysin), 0);
 
+    // Press start
+    i32 ti = (i32)(game->time * 1.0);
+    if(ti % 2 == 0) {
+        String start = string_const("PRESS SPACE");
+        offx = 10.0;
+        offy = 14.0;
+        font_sz = 4.0;
+        i32 pl = 1;
+        if(ti % 4 == 0) {
+            pl = 2;
+        }
+        for(i32 i = 0; i < start.len; i++) {
+            draw_sprite(draw_list, SPRITE_FONT_SMALL, (i32)start.text[i] - 32, v2_new(offx + (i * font_sz), offy /* + ysin */), pl);
+        }
+    }
+
     // Hannah
     draw_sprite_animated(draw_list, SPRITE_HANNAH_LEFT, game->time * 0.5, v2_new(-fmod((game->time * 8.0), 96.0f) + 70.0f, 0.0), 0);
 }
 
 void mode_menu_update(Game* game, DrawList* draw_list, Audio* audio, f32 dt) {
+    game->transition_t += dt / MENU_FADE_IN_TIME;
+    override_pallete_from_fade_one_way_t(draw_list, game->transition_t);
+
     // Control
 	if(input_button_pressed(game->input_buttons[BUTTON_DOWN])) {
         game->transition_t = 0.0;

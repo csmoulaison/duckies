@@ -2,8 +2,12 @@ i32 ducks_len(LevelState* state) {
     return state->marchers_len - 1;
 }
 
+Level* prev_game_level(Game* game) {
+    return &game->world->levels[game->state.level_index_prev];
+}
+
 Level* active_game_level(Game* game) {
-    return &game->world->levels[game->level_index];
+    return &game->world->levels[game->state.level_index];
 }
 
 iv2 delta_from_direction(MoveDirection dir) {
@@ -47,6 +51,15 @@ iv2 pos_after_direction(Entity* entity, MoveDirection dir) {
         default: break;
     }
     return pos;
+}
+
+void entity_offset_teleport(Entity* entity, iv2 offset) {
+    v2 offset_v2 = v2_from_iv2(offset);
+    entity->pos_prev = iv2_add(entity->pos_prev, offset);
+    entity->pos_lead = iv2_add(entity->pos_lead, offset);
+    entity->pos_cur = iv2_add(entity->pos_cur, offset);
+    entity->pos_visible = v2_add(entity->pos_visible, offset_v2);
+    entity->pos_prev_visible = v2_add(entity->pos_prev_visible, offset_v2);
 }
 
 // This is used for simulation as well, so shold never use state.
@@ -113,7 +126,14 @@ void reset_level(Game* game) {
     game->level_reset_t = 0.0f;
 }
 
+void override_pallete_from_fade_one_way_t(DrawList* list, f32 t) {
+    list->palette_override_index = 2;
+    if(t > 0.50) list->palette_override_index = 1;
+    if(t > 0.75) list->palette_override_index = 0;
+}
+
 void override_pallete_from_fade_t(DrawList* list, f32 t) {
+    list->palette_override_index = 0;
     if(t > 0.40) list->palette_override_index = 1;
     if(t > 0.44) list->palette_override_index = 2;
     if(t > 0.76) list->palette_override_index = 1;

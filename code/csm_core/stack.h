@@ -29,6 +29,7 @@ Stack stack_from_stack(Stack* stack, u64 size, String label);
 void   stack_clear(Stack* stack);
 void   stack_clear_to_zero(Stack* stack);
 void*  stack_alloc(Stack* stack, u64 size);
+void*  stack_alloc_zero(Stack* stack, u64 size);
 Buffer stack_alloc_labeled(Stack* stack, u64 size, String label);
 Buffer stack_alloc_typed(Stack* stack, u64 size, String label, BufferType type);
 String string_from_stack(Stack* stack, u64 capacity);
@@ -94,6 +95,12 @@ void stack_clear_to_zero(Stack* stack)
 void* stack_alloc(Stack* stack, u64 size)
 {
     return stack_alloc_typed(stack, size, string_const("stack_alloc"), BUFFER_TYPE_SUB).memory;
+}
+
+void* stack_alloc_zero(Stack* stack, u64 size) {
+    void* mem = stack_alloc(stack, size);
+    memset(mem, 0, size);
+    return mem;
 }
 
 Buffer stack_alloc_labeled(Stack* stack, u64 size, String label) {

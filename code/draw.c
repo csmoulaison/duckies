@@ -25,9 +25,9 @@ void draw_sprite(DrawList* list, u64 handle, u32 frame_index, v2 position, i32 p
 
     v2 scaled_logical = list->logical_size;
     if(list->minified) {
-        scaled_logical = v2_scale(list->logical_size, 2.0f);
-        position.x += 32;
-        position.y += 32;
+        scaled_logical = v2_scale(list->logical_size, 8.0f);
+        position.x += 256 - 32;
+        position.y += 256 - 32;
     }
 
     sprite->dst = v4_new(
@@ -54,3 +54,9 @@ void draw_sprite_animated(DrawList* list, u64 handle, f32 t, v2 position, i32 pa
     SpriteData* asset = sprite_asset(asset_pack_data, handle);
     draw_sprite_animated_frame_range(list, handle, t, position, 0, asset->frames_len - 1, palette_index);
 }
+
+//iv2 text_line_dimensions(DrawList* list, u64 handle, iv2 font_size) {
+//
+//}
+//
+//void draw_text(DrawList* list, u64 handle, iv2 font_size, v2 position,

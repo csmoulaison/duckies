@@ -1,7 +1,9 @@
-#define LEVELS_MAX 1024
+#define LEVELS_MAX 256
 
 #define WORLD_PATH_FROM_BIN    "../assets/world/world.data"
 #define WORLD_PATH_FROM_BUILD "assets/world/world.data"
+
+#include "level_exits.c"
 
 typedef enum {
     TILE_TYPE_GROUND,
@@ -15,10 +17,12 @@ typedef struct {
 } Tile;
 
 typedef struct {
-    u16  exit_up;
-    u16  exit_left;
-    u16  exit_down;
-    u16  exit_right;
+    // level 0 is null index
+    // exits must be in this order
+    i16  exit_up;
+    i16  exit_left;
+    i16  exit_down;
+    i16  exit_right;
     Tile tiles[64];
 } Level;
 

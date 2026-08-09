@@ -68,6 +68,10 @@ void update_marcher_with_platforms(LevelState* state, Entity* marcher, Entity* m
 
 void mode_game_update(Game* game, DrawList* draw_list, Audio* audio, f32 dt) {
     LevelState* state = &game->state;
+    Level* level = active_game_level(game);
+
+    i32 switch_to_level = -1;
+    iv2 level_switch_offset = iv2_new(0, 0);
 
     // hannah move
     Entity* hannah = &state->hannah;
@@ -95,6 +99,11 @@ void mode_game_update(Game* game, DrawList* draw_list, Audio* audio, f32 dt) {
             Entity* entity = &state->marchers[i];
             entity->move_this_cycle = MOVE_NONE;
 
+            // Check death if inside bounds
+            if(entity->pos_cur.x < 0 || entity->pos_cur.x > 7 || entity->pos_cur.y < 0 || entity->pos_cur.y > 7) {
+                continue;
+            }
+            
             for(i32 j = i + 1; j < state->marchers_len; j++) {
                 Entity* other = &state->marchers[j];
                 if(iv2_eq(other->pos_cur, entity->pos_cur)) {
@@ -113,10 +122,27 @@ void mode_game_update(Game* game, DrawList* draw_list, Audio* audio, f32 dt) {
                 level_reset = true;
             }
         }
+
+        if(hannah->pos_cur.y > 7 && level->exit_up != 0) {
+            switch_to_level = level->exit_up;
+            level_switch_offset = iv2_new(0, -1);
+        }
+        if(hannah->pos_cur.x < 0 && level->exit_left != 0) {
+            switch_to_level = level->exit_left;
+            level_switch_offset = iv2_new(1, 0);
+        }
+        if(hannah->pos_cur.y < 0 && level->exit_down != 0) {
+            switch_to_level = level->exit_down;
+            level_switch_offset = iv2_new(0, 1);
+        }
+        if(hannah->pos_cur.x > 7 && level->exit_right != 0) {
+            switch_to_level = level->exit_right;
+            level_switch_offset = iv2_new(-1, 0);
+        }
     }
 	if(level_reset || input_button_pressed(game->input_buttons[BUTTON_RESET])) {
         reset_level(game);
-        update_visual_state(game, draw_list, dt);
+        update_visual_state(game, draw_list, v2_zero(), dt);
         return;
 	}
 
@@ -206,7 +232,7 @@ void mode_game_update(Game* game, DrawList* draw_list, Audio* audio, f32 dt) {
     }
 
     // draw
-    update_visual_state(game, draw_list, dt);
+    update_visual_state(game, draw_list, v2_zero(), dt);
 
     // Debug circle
     //debug_circle_pos = state->platforms[0].pos_cur;
@@ -217,5 +243,18 @@ void mode_game_update(Game* game, DrawList* draw_list, Audio* audio, f32 dt) {
 	if(input_button_pressed(game->input_buttons[BUTTON_EDITOR])) {
     	game->mode = MODE_EDITOR;
 	}
+
+    if(switch_to_level != -1) {
+        printf("switch to level %d\n", switch_to_level);
+        state->level_index_prev = state->level_index;
+        state->level_index = switch_to_level;
+        state->level_prev_offset_pos = v2_scale(v2_from_iv2(level_switch_offset), 64.0);
+        game->transition_t = 0.0;
+        game->mode = MODE_LEVEL_SWITCH;
+
+        for(i32 i = 0; i < state->marchers_len; i++) {
+            entity_offset_teleport(&state->marchers[i], iv2_scale(level_switch_offset, 8));
+        }
+    }
 
 }

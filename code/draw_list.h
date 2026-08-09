@@ -1,7 +1,7 @@
 #ifndef draw_list_h_INCLUDED
 #define draw_list_h_INCLUDED
 
-#define DRAW_MAX_SPRITES      256
+#define DRAW_MAX_SPRITES      2048
 #define LOGICAL_WINDOW_WIDTH  64
 #define LOGICAL_WINDOW_HEIGHT 64
 

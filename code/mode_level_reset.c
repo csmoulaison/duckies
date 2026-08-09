@@ -20,6 +20,6 @@ void mode_level_reset_update(Game* game, DrawList* draw_list, Audio* audio, f32 
     }
 
     override_pallete_from_fade_t(draw_list, game->level_reset_t);
-    update_visual_state(game, draw_list, dt);
+    update_visual_state(game, draw_list, v2_zero(), dt);
 
 }

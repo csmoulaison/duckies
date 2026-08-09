@@ -72,11 +72,14 @@ typedef struct {
 } Editor;
 
 typedef enum {
+    MODE_PREMENU,
     MODE_MENU,
     MODE_MENU_TO_GAME,
     MODE_GAME,
     MODE_LEVEL_RESET,
+    MODE_LEVEL_SWITCH,
     MODE_EDITOR,
+    MODE_WORLD_VIEWER
 } GameMode;
 
 // Must never contain unstable references, because reloads are just a memcpy.
@@ -88,6 +91,10 @@ typedef struct {
     Entity        platforms[PLATFORMS_MAX];
     i32           platforms_len;
     i32           cycle_index;
+
+    i32           level_index;
+    i32           level_index_prev;
+    v2            level_prev_offset_pos;
 
     union {
         Entity marchers[MARCHERS_MAX]; // ducks and hannah
@@ -105,7 +112,6 @@ typedef struct {
     GameMode         mode;
     World*           world;
     World            world_copy;
-    i32              level_index;
     LevelState       state;
     LevelState       saved_state;
 
@@ -124,14 +130,18 @@ typedef struct {
     f32              level_reset_t;
     f32              transition_t;
 
-    // Editor mode
+    // Editor modes
     Editor           editor;
+    u8               world_viewer_mode;
+    i32              world_viewer_level_select_index;
+    iv2              world_viewer_place_offset;
 } Game;
 
 #include "music.c"
 #include "game_common.c"
 #include "draw_game.c"
 #include "mode_menu.c"
+#include "mode_world_viewer.c"
 #include "mode_game.c"
 #include "mode_menu_to_game.c"
 #include "mode_level_reset.c"
@@ -150,7 +160,18 @@ GAME_INIT(game_init) {
 	game->world = &game->world_copy;
 #endif
 
+    for(i32 i = 0; i < LEVELS_MAX; i++) {
+        break;
+        Level* level = &game->world->levels[i];
+        level->exit_up = 0;
+        level->exit_left = 0;
+        level->exit_down = 0;
+        level->exit_right = 0;
+    }
+
 	game->new_cycle_this_frame = true;
+	game->state.level_index = 1;
+	//game->mode = MODE_GAME;
 
 	// setup entities. later, there will be structs for each type that reference
 	// entity indices. A subservient tool.
@@ -194,10 +215,13 @@ GAME_UPDATE(game_update) {
 	game->input_buttons[BUTTON_EDITOR_PLACE] = input_update_key_button(events, events_len, game->input_buttons[BUTTON_EDITOR_PLACE], KEYCODE_SPACE);
 
 	game->debug_stepping = false;
-	game->level_index = 2;
+	//game->state.level_index = 2;
 
     pre_update_level_logic(game, &frame_stack);
 	switch(game->mode) {
+    	case MODE_PREMENU: {
+        	mode_premenu_to_menu_update(game, draw_list, audio, dt);
+    	} break;
     	case MODE_MENU: {
         	mode_menu_update(game, draw_list, audio, dt);
     	} break;
@@ -210,14 +234,22 @@ GAME_UPDATE(game_update) {
     	case MODE_LEVEL_RESET: {
         	mode_level_reset_update(game, draw_list, audio, dt);
     	} break;
+    	case MODE_LEVEL_SWITCH: {
+        	mode_level_switch_update(game, draw_list, audio, dt);
+    	} break;
     	case MODE_EDITOR: {
         	mode_editor_update(game, draw_list, audio, dt);
+    	} break;
+    	case MODE_WORLD_VIEWER: {
+        	mode_world_viewer_update(game, draw_list, audio, dt, &frame_stack);
     	} break;
     	default: panic();
 	}
     post_update_level_logic(game);
 
-    update_music_state(game, audio, dt);
+    if(game->mode != MODE_PREMENU) {
+        update_music_state(game, audio, dt);
+    }
 	game->frames_since_init++;
 
 }

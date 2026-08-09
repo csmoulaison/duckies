@@ -91,7 +91,7 @@ i32 main(i32 argc, char** argv) {
 		WindowEvent* events_head = (WindowEvent*)event_buffer.memory;
 		draw_init_list(&ctx->renderer.list, ctx->window.size);
 		// NOW: calc delta time
-		game.update(game_stack.memory, &ctx->renderer.list, &ctx->audio, events_head, events_len, 0.025f);
+		game.update(game_stack.memory, &ctx->renderer.list, &ctx->audio, events_head, events_len, 0.02f);
 		i32 sound_samples_count = alsa_write_samples_count(&ctx->alsa);
 		if(sound_samples_count > 0) {
     		f32 sample_buffer[sound_samples_count] = {};
