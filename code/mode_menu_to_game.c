@@ -1,9 +1,9 @@
 // RELEASE: set these to longer
-//#define PREMENU_TO_MENU_TIME 5.0
-#define PREMENU_TO_MENU_TIME 0.5
+#define PREMENU_TO_MENU_TIME 5.0
+//#define PREMENU_TO_MENU_TIME 0.5
 
-//#define MENU_TO_GAME_TIME 4.0
-#define MENU_TO_GAME_TIME 0.5
+#define MENU_TO_GAME_TIME 4.0
+//#define MENU_TO_GAME_TIME 0.5
 
 #define LEVEL_SWITCH_TIME 1.0
 
@@ -12,13 +12,13 @@ void mode_level_switch_update(Game* game, DrawList* draw_list, Audio* audio, f32
     game->transition_t += dt / LEVEL_SWITCH_TIME;
     v2 offset_cur = v2_lerp(v2_scale(state->level_prev_offset_pos, -1.0), v2_zero(), game->transition_t);
     v2 offset_prev = v2_lerp(v2_zero(), state->level_prev_offset_pos, game->transition_t);
-    draw_level_tiles(prev_game_level(game), draw_list, offset_prev);
+    draw_level_tiles(game, prev_game_level(game), draw_list, offset_prev);
     update_visual_state(game, draw_list, offset_cur, dt);
     if(game->transition_t > 1.0) {
         game->mode = MODE_GAME;
         game->transition_t = 0.0;
+    	game->saved_state = game->state;
     }
-    printf("switching to %d\n", state->level_index);
 }
 
 void mode_premenu_to_menu_update(Game* game, DrawList* draw_list, Audio* audio, f32 dt) {

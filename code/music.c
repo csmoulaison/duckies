@@ -200,6 +200,11 @@ void update_music_state(Game* game, Audio* audio, f32 dt) {
         bass->amp *= 1.2;
     }
 
+    if(game->mute) {
+        melody->amp = 0.0;
+        bass->amp = 0.0;
+    }
+
     AudioNoiseChannel* noise = &audio->noise_channels[0];
     f32 move_t = fmod(game->time, 1.0f);
     i32 drum_i = ((i64)(game->time * 3.0f) % 12);

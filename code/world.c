@@ -6,6 +6,10 @@
 #include "level_exits.c"
 
 typedef enum {
+    TILE_FLAG_CLIFF = 1 << 0
+} TileFlag;
+
+typedef enum {
     TILE_TYPE_GROUND,
     TILE_TYPE_WATER,
     TILE_TYPE_COUNT 
@@ -13,7 +17,8 @@ typedef enum {
 
 typedef struct {
     u16 type;
-    u16 flags;
+    u8  flags;
+    u8  subtype;
 } Tile;
 
 typedef struct {

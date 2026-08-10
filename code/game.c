@@ -26,16 +26,21 @@ char* asset_pack_data = NULL;
 
 #endif
 
-#define DUCKS_MAX       16
-#define MARCHERS_MAX    1 + DUCKS_MAX
-#define PLATFORMS_MAX   64
+#define DUCKS_MAX          16
+#define MARCHERS_MAX       1 + DUCKS_MAX
+#define PLATFORMS_MAX      32
+#define CARS_MAX           32
 
-#define TIME_SCALE      1.25f
-#define MOVE_QUEUE_MAX  64
-#define LOGIC_DATA_SIZE 256
-#define MOVE_CHAIN_SIZE 256
+#define TIME_SCALE         1.25f
+#define MOVE_QUEUE_MAX     64
+#define LOGIC_DATA_SIZE    256
+#define MOVE_CHAIN_SIZE    256
+#define MSG_LEN_MAX        16
 
-#define STARTING_DUCKS  1
+#define STARTING_DUCKS     0
+
+#define ROOT_NOTE_FROG 100.0
+#define ROOT_NOTE_DUCK 400.0
 
 typedef enum {
     MOVE_NONE  = 0,
@@ -63,24 +68,43 @@ typedef struct {
     MoveDirection     move_this_cycle;
     MoveDirection     pulled_move_this_cycle;
     PlatformSinkState sink_state;
+    i32               car_width;
 } Entity;
 
+typedef enum {
+    EDIT_TYPE = 0,
+    EDIT_FLAGS,
+    EDIT_SUBTYPE,
+    EDIT_COUNT
+} EditorType;
+
 typedef struct {
+    EditorType type;
     i32  level_index;
     iv2  cursor_pos;
     Tile cursor_tile;
+    u16  cursor_flag_index;
 } Editor;
 
 typedef enum {
-    MODE_PREMENU,
+    MODE_PREMENU = 0,
     MODE_MENU,
     MODE_MENU_TO_GAME,
     MODE_GAME,
     MODE_LEVEL_RESET,
     MODE_LEVEL_SWITCH,
+    MODE_MSG,
+    MODE_CUTSCENE,
+    MODE_EGG_EXPLODE,
+    MODE_EGG_COLLECT,
     MODE_EDITOR,
     MODE_WORLD_VIEWER
 } GameMode;
+
+typedef enum {
+    CUT_NONE,
+    CUT_FROG_PAUSE
+} CutsceneMode;
 
 // Must never contain unstable references, because reloads are just a memcpy.
 typedef struct {
@@ -92,9 +116,25 @@ typedef struct {
     i32           platforms_len;
     i32           cycle_index;
 
+    Entity        cars[CARS_MAX];
+    i32           cars_len;
+
     i32           level_index;
     i32           level_index_prev;
     v2            level_prev_offset_pos;
+
+    // Level egg state
+    iv2           level_egg_pos;
+    bool          level_egg_exists;
+    i32           level_egg_index;
+    bool          level_egg_broken;
+    bool          level_egg_collected;
+    f32           level_egg_t;
+
+    // Characters
+    bool          frog_exists;
+    i32           frog_index;
+    iv2           frog_pos;
 
     union {
         Entity marchers[MARCHERS_MAX]; // ducks and hannah
@@ -110,6 +150,7 @@ typedef struct {
 typedef struct {
     // High level state
     GameMode         mode;
+    GameMode         queued_game_mode;
     World*           world;
     World            world_copy;
     LevelState       state;
@@ -121,6 +162,7 @@ typedef struct {
     bool             new_cycle_this_frame;
     bool             half_cycle_this_frame;
 	InputButtonState input_buttons[BUTTON_COUNT];
+	bool             mute;
 
 	// Debugging
 	bool             debug_stepping;
@@ -129,6 +171,18 @@ typedef struct {
     // Misc mode data
     f32              level_reset_t;
     f32              transition_t;
+    CutsceneMode     cutscene_mode;
+
+    // Dialogue
+    String           msg[MSG_LEN_MAX];
+    i32              msg_len;
+    i32              msg_string_cur;
+    i32              msg_char_cur;
+    f32              msg_char_t;
+    bool             msg_speeding;
+    f32              msg_sound_root_note;
+    f32              msg_sound_char_note;
+    i64              msg_portrait;
 
     // Editor modes
     Editor           editor;
@@ -142,9 +196,13 @@ typedef struct {
 #include "draw_game.c"
 #include "mode_menu.c"
 #include "mode_world_viewer.c"
+#include "mode_dialogue.c"
+#include "frog.c"
+#include "mode_cinematic.c"
 #include "mode_game.c"
 #include "mode_menu_to_game.c"
 #include "mode_level_reset.c"
+#include "mode_egg_explode.c"
 #include "editor.c"
 #include "level_logic.c"
 
@@ -161,17 +219,14 @@ GAME_INIT(game_init) {
 #endif
 
     for(i32 i = 0; i < LEVELS_MAX; i++) {
-        break;
         Level* level = &game->world->levels[i];
-        level->exit_up = 0;
-        level->exit_left = 0;
-        level->exit_down = 0;
-        level->exit_right = 0;
+        for(i32 j = 0; j < 64; j++) {
+        }
     }
 
 	game->new_cycle_this_frame = true;
-	game->state.level_index = 1;
-	//game->mode = MODE_GAME;
+	game->state.level_index = 3;
+	game->mode = MODE_GAME;
 
 	// setup entities. later, there will be structs for each type that reference
 	// entity indices. A subservient tool.
@@ -207,12 +262,18 @@ GAME_UPDATE(game_update) {
 	game->input_buttons[BUTTON_RIGHT]        = input_update_key_button(events, events_len, game->input_buttons[BUTTON_RIGHT],        KEYCODE_D);
 	game->input_buttons[BUTTON_UP]           = input_update_key_button(events, events_len, game->input_buttons[BUTTON_UP],           KEYCODE_W);
 	game->input_buttons[BUTTON_DOWN]         = input_update_key_button(events, events_len, game->input_buttons[BUTTON_DOWN],         KEYCODE_S);
+	game->input_buttons[BUTTON_START]        = input_update_key_button(events, events_len, game->input_buttons[BUTTON_START],        KEYCODE_SPACE);
 	game->input_buttons[BUTTON_LEAVE]        = input_update_key_button(events, events_len, game->input_buttons[BUTTON_LEAVE],        KEYCODE_E);
 	game->input_buttons[BUTTON_BECKON]       = input_update_key_button(events, events_len, game->input_buttons[BUTTON_BECKON],       KEYCODE_Q);
 	game->input_buttons[BUTTON_RESET]        = input_update_key_button(events, events_len, game->input_buttons[BUTTON_RESET],        KEYCODE_R);
+	game->input_buttons[BUTTON_MUTE]         = input_update_key_button(events, events_len, game->input_buttons[BUTTON_MUTE],         KEYCODE_M);
 	game->input_buttons[BUTTON_QUIT]         = input_update_key_button(events, events_len, game->input_buttons[BUTTON_QUIT],         KEYCODE_ESCAPE);
 	game->input_buttons[BUTTON_EDITOR]       = input_update_key_button(events, events_len, game->input_buttons[BUTTON_EDITOR],       KEYCODE_TAB);
 	game->input_buttons[BUTTON_EDITOR_PLACE] = input_update_key_button(events, events_len, game->input_buttons[BUTTON_EDITOR_PLACE], KEYCODE_SPACE);
+
+	if(input_button_pressed(game->input_buttons[BUTTON_MUTE])) {
+    	game->mute = !game->mute;
+	}
 
 	game->debug_stepping = false;
 	//game->state.level_index = 2;
@@ -237,6 +298,18 @@ GAME_UPDATE(game_update) {
     	case MODE_LEVEL_SWITCH: {
         	mode_level_switch_update(game, draw_list, audio, dt);
     	} break;
+    	case MODE_MSG: {
+        	mode_msg_update(game, draw_list, audio, dt, &frame_stack);
+    	} break;
+    	case MODE_CUTSCENE: {
+        	mode_cutscene_update(game, draw_list, audio, dt);
+    	} break;
+    	case MODE_EGG_EXPLODE: {
+        	mode_egg_explode_update(game, draw_list, audio, dt);
+    	} break;
+    	case MODE_EGG_COLLECT: {
+        	mode_egg_collect_update(game, draw_list, audio, dt);
+    	} break;
     	case MODE_EDITOR: {
         	mode_editor_update(game, draw_list, audio, dt);
     	} break;
@@ -251,5 +324,4 @@ GAME_UPDATE(game_update) {
         update_music_state(game, audio, dt);
     }
 	game->frames_since_init++;
-
 }

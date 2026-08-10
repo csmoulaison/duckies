@@ -68,6 +68,7 @@ i32 main(i32 argc, char** argv) {
 	window_register_keycode(&ctx->window, KEYCODE_Q);
 	window_register_keycode(&ctx->window, KEYCODE_E);
 	window_register_keycode(&ctx->window, KEYCODE_R);
+	window_register_keycode(&ctx->window, KEYCODE_M);
 	window_register_keycode(&ctx->window, KEYCODE_UP);
 	window_register_keycode(&ctx->window, KEYCODE_LEFT);
 	window_register_keycode(&ctx->window, KEYCODE_DOWN);
@@ -91,7 +92,7 @@ i32 main(i32 argc, char** argv) {
 		WindowEvent* events_head = (WindowEvent*)event_buffer.memory;
 		draw_init_list(&ctx->renderer.list, ctx->window.size);
 		// NOW: calc delta time
-		game.update(game_stack.memory, &ctx->renderer.list, &ctx->audio, events_head, events_len, 0.02f);
+		game.update(game_stack.memory, &ctx->renderer.list, &ctx->audio, events_head, events_len, 0.018f);
 		i32 sound_samples_count = alsa_write_samples_count(&ctx->alsa);
 		if(sound_samples_count > 0) {
     		f32 sample_buffer[sound_samples_count] = {};

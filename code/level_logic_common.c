@@ -1,3 +1,54 @@
+// Common entity
+void entity_follow_target(Game* game, Entity* entity, iv2 target) {
+    LevelState* state = &game->state;
+    f32 target_dist = iv2_distance(entity->pos_cur, target);
+    if(game->new_cycle_this_frame) {
+        if(!within_epsilon(target_dist, 0.0, 0.1) && !within_epsilon(target_dist, 1.0, 0.1)) {
+            entity->pos_cur = target;
+            entity->pos_prev = target;
+            entity->pos_prev_visible = v2_from_iv2(target);
+        } else {
+            printf("this is what we call a car\n");
+            if(!iv2_eq(entity->pos_cur, target)) {
+                entity_move(entity, direction_from_target(entity, target));
+            } else {
+                entity->move_this_cycle = MOVE_NONE;
+            }
+        }
+    }
+}
+
+// Egg
+Entity* place_egg(LevelState* state, iv2 pos, i32 egg_index) {
+    state->level_egg_exists = true;
+    state->level_egg_index = egg_index;
+    state->level_egg_pos = pos;
+}
+
+// Car
+Entity* push_car(LevelState* state, i64 sprite, i32 width) {
+    Entity* car = &state->cars[state->cars_len];
+    state->cars_len++;
+    car->sprite_handle = sprite;
+    car->car_width = width;
+    return car;
+}
+
+void platform_car_cycle_ltr(Game* game, Entity* car, i32 x, i32 y, i32 cycle_len) {
+    LevelState* state= &game->state;
+    i32 pos_i = (state->cycle_index + x) % cycle_len;
+    iv2 target = iv2_new(7 + car->car_width - pos_i, y);
+    entity_follow_target(game, car, target);
+}
+
+void platform_car_cycle_rtl(Game* game, Entity* car, i32 x, i32 y, i32 cycle_len) {
+    LevelState* state= &game->state;
+    i32 pos_i = (state->cycle_index + x) % cycle_len;
+    iv2 target = iv2_new(0 - car->car_width + pos_i, y);
+    entity_follow_target(game, car, target);
+}
+
+// Platforms
 Entity* push_platform(LevelState* state) {
     Entity* platform = &state->platforms[state->platforms_len];
     state->platforms_len++;
@@ -19,25 +70,9 @@ void platform_sink_cycle(Game* game, Entity* platform, PlatformSinkState* cycle,
 
 void platform_follow_sequence(Game* game, Entity* platform, iv2* positions, i32 len, i32 offset) {
     LevelState* state = &game->state;
-    //i64 time_i = (i64)game->time;
-    //i32 pos_i = (i32)time_i % len;
     i32 pos_i = (state->cycle_index + offset) % len;
     iv2 target = positions[pos_i];
-
-    f32 target_dist = iv2_distance(platform->pos_cur, target);
-    if(game->new_cycle_this_frame) {
-        if(!within_epsilon(target_dist, 0.0, 0.1) && !within_epsilon(target_dist, 1.0, 0.1)) {
-            platform->pos_cur = target;
-            platform->pos_prev = target;
-            platform->pos_prev_visible = v2_from_iv2(target);
-        } else {
-            if(!iv2_eq(platform->pos_cur, target)) {
-                entity_move(platform, direction_from_target(platform, target));
-            } else {
-                platform->move_this_cycle = MOVE_NONE;
-            }
-        }
-    }
+    entity_follow_target(game, platform, target);
 }
 
 i32 platform_x_back_forth_sequence(
@@ -92,7 +127,7 @@ i32 platform_x_back_forth_sequence(
     return len;
 }
 
-// return len
+// returns len
 i32 platform_push_run_x_back_forth_sequence(
     Game* game, 
     i32 count, 

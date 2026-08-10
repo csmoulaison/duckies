@@ -27,6 +27,7 @@ typedef enum {
 	KEYCODE_Q,
 	KEYCODE_E,
 	KEYCODE_R,
+	KEYCODE_M,
 	KEYCODE_UP,
 	KEYCODE_LEFT,
 	KEYCODE_DOWN,
@@ -114,6 +115,9 @@ void window_register_keycode(WindowContext* ctx, u32 keycode) {
     	} break;
     	case KEYCODE_R: {
         	xlib_keysym = XK_r;
+    	} break;
+    	case KEYCODE_M: {
+        	xlib_keysym = XK_m;
     	} break;
     	case KEYCODE_UP: {
         	xlib_keysym = XK_Up;

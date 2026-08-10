@@ -47,8 +47,6 @@ void gl_render_update(RendererGL* renderer, char* assets) {
     gl_clear_color(v4_zero());
 
     // Render to pixel framebuffer
-	glBindBuffer(GL_UNIFORM_BUFFER, renderer->sprite_ubo.id);
-	glBufferSubData(GL_UNIFORM_BUFFER, 0, list->sprites_len * sizeof(DrawSprite), list->sprites); 
     //void* p_sprite_ubo = glMapBufferRange(GL_UNIFORM_BUFFER, 0, GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT, GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
     //assert(p_sprite_ubo != NULL);
 	//memcpy(p_sprite_ubo, list->sprites, list->sprites_len * sizeof(DrawSprite));
@@ -64,9 +62,15 @@ void gl_render_update(RendererGL* renderer, char* assets) {
     glBindTexture(GL_TEXTURE_2D, renderer->palette_texture.id);
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, renderer->atlas_texture.id);
-
     Primitive2dData* quad = primitive_2d_asset(assets, PRIMITIVE_2D_QUAD);
+
+	glBindBuffer(GL_UNIFORM_BUFFER, renderer->sprite_ubo.id);
+	glBufferSubData(GL_UNIFORM_BUFFER, 0, list->sprites_len * sizeof(DrawSprite), list->sprites); 
 	glDrawArraysInstanced(GL_TRIANGLES, 0, quad->vertices_len, list->sprites_len);
+
+	glBindBuffer(GL_UNIFORM_BUFFER, renderer->sprite_ubo.id);
+	glBufferSubData(GL_UNIFORM_BUFFER, 0, list->sprites_above_len * sizeof(DrawSprite), list->sprites_above); 
+	glDrawArraysInstanced(GL_TRIANGLES, 0, quad->vertices_len, list->sprites_above_len);
 
     // Render framebuffer on screen quad
     i32 viewport_length;

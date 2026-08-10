@@ -21,6 +21,9 @@ typedef struct {
     DrawSprite sprites[DRAW_MAX_SPRITES];
     u32        sprites_len;
 
+    DrawSprite sprites_above[DRAW_MAX_SPRITES];
+    u32        sprites_above_len;
+
     // cheeky state
     bool       minified;
     i32        palette_override_index;

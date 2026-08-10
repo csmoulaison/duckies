@@ -111,6 +111,16 @@ void mode_game_update(Game* game, DrawList* draw_list, Audio* audio, f32 dt) {
                 }
             }
 
+            for(i32 j = 0; j < state->cars_len; j++) {
+                Entity* car = &state->cars[j];
+                for(i32 x = 0; x < car->car_width; x++) {
+                    iv2 segment = iv2_new(car->pos_cur.x + x, car->pos_cur.y);
+                    if(iv2_eq(entity->pos_cur, segment)) {
+                        level_reset = true;
+                    }
+                }
+            }
+
             if(i > 0) {
                 Entity* leader = &state->marchers[i - 1];
                 if(iv2_distance(leader->pos_cur, entity->pos_cur) != 1.0) {
@@ -157,9 +167,18 @@ void mode_game_update(Game* game, DrawList* draw_list, Audio* audio, f32 dt) {
 
         // Hannah moves if applicable
         if(state->input_move != MOVE_NONE) {
-            state->hannah_pos_lead_prev = hannah->pos_lead;
-            entity_move(hannah, state->input_move);
-            state->hannah_manual_moved_this_cycle = true;
+            iv2 move_pos = pos_after_direction(hannah, state->input_move);
+            if(state->level_egg_exists && !state->level_egg_broken
+            && iv2_eq(move_pos, state->level_egg_pos)) {
+                game->mode = MODE_EGG_EXPLODE;
+                state->level_egg_t = 0.0;
+            } else if(state->frog_exists && iv2_eq(move_pos, state->frog_pos)) {
+                frog_talk(game);
+            } else {
+                state->hannah_pos_lead_prev = hannah->pos_lead;
+                entity_move(hannah, state->input_move);
+                state->hannah_manual_moved_this_cycle = true;
+            }
         } else {
             state->hannah_manual_moved_this_cycle = false;
         }

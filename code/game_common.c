@@ -76,6 +76,20 @@ void entity_move(Entity* entity, MoveDirection move) {
     entity->move_this_cycle = move;
 }
 
+void entity_place(Entity* entity, iv2 pos) {
+    entity->move_this_cycle = MOVE_NONE;
+    entity->pulled_move_this_cycle = MOVE_NONE;
+    entity->pos_t = 1.0;
+
+    entity->pos_cur = pos;
+    entity->pos_prev = pos;
+    entity->pos_lead = pos;
+
+    v2 fpos = v2_scale(v2_from_iv2(pos), 8.0);
+    entity->pos_visible = fpos;
+    entity->pos_prev_visible = fpos;
+}
+
 // NOTE: brittle reduntant with below
 Entity* try_platform_was_at_pos(Game* game, iv2 pos) {
     LevelState* state = &game->state;

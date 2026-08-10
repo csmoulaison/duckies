@@ -9,6 +9,6 @@ uniform sampler2D atlas;
 
 void main()
 {
-    float index = texture(atlas, uv).r * 4.0f;
-    frag_color = texture(palette, vec2(index + (palette_offset / 64.0f), 0.0f));
+    float index = texture(atlas, uv).r * 2.0f;
+    frag_color = texture(palette, vec2(index + (palette_offset / 128.0f), 0.0f));
 }

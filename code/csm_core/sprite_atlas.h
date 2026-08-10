@@ -97,7 +97,7 @@ try_pack_again:
 	for(i32 i = 0; i < builder->sprites_len; i++) {
     	SpriteTextureList* list = &builder->texture_lists[pack_order[i]];
     	SpriteData* sprite      = builder->sprites[pack_order[i]];
-    	sprite->size = iv2_new(list->textures[0]->width, list->textures[1]->height);
+    	sprite->size = iv2_new(list->textures[0]->width, list->textures[0]->height);
 
     	for(i32 j = 0; j < sprite->frames_len; j++) {
     		TextureData* tex   = builder->texture_lists[pack_order[i]].textures[j];

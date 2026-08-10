@@ -19,7 +19,7 @@
 #include "world.c"
 
 #define PALETTE_COLOR_COUNT 16
-#define PALETTE_COUNT       4
+#define PALETTE_COUNT       8
 #define PALETTE_DATA_SIZE   (PALETTE_COLOR_COUNT * PALETTE_COUNT)
 u32 palette_colors[PALETTE_COLOR_COUNT] = {
     0x00000000, //  0: Clear
@@ -32,7 +32,7 @@ u32 palette_colors[PALETTE_COLOR_COUNT] = {
     0xff33dd55, //  7: Dark G. (grass2)
     0xff000000, //  8: Black
     0xffFFFFFF, //  9: White
-    0xffF300FF, // 10: undef
+    0xff1A60A5, // 10: Brown 
     0xffF300FF, // 11: undef
     0xffF300FF, // 12: undef
     0xffF300FF, // 13: undef
@@ -44,6 +44,10 @@ u32 palette_indices[PALETTE_DATA_SIZE] = {
     0,  8,  1,  2,  1,  2,  7,  8,  1,  1, 1,  1,  1,  1,  1,  1,  // dark
     0,  8,  8,  8,  8,  8,  8,  8,  8,  8, 8,  8,  8,  8,  8,  8,  // black
     0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 0,  0,  0,  0,  0,  0, // all clear
+    0,  1,  2,  3,  4,  5,  7,  6,  8,  9, 10, 11, 12, 13, 14, 15, // tile checkerboard
+    0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15, // unset
+    0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15, // unset
+    0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15, // unset
 };
 
 i32 main(i32 argc, char** argv) {

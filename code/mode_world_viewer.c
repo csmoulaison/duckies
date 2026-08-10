@@ -1,3 +1,39 @@
+// Here, "root" refers to the level being added or deleted (wired or unwired)
+// active, active_positions: 1-1 indexing with levels, active being 1 if active, 0 if not
+// levels: list of all game levels
+// wire...: if wiring, connects adjacent positions, else, disconnecting
+void rewire_level_exits(Level* root, i32 root_index, iv2 root_pos, u8* active, iv2* active_positions, Level* levels, bool wire_rather_than_unwire) {
+    iv2 cardinals[4] = { iv2_new(0, 1), iv2_new(-1, 0), iv2_new(0, -1), iv2_new(1, 0) };
+    // Offsets into level struct, mapping up to down, left to right, etc and so on
+    i32 other_exit_offsets[4] = { 2, 3, 0, 1 };
+    for(i32 i = 0; i < LEVELS_MAX; i++) {
+        if(active[i] == 0) {
+            continue;
+        }
+        for(i32 j = 0; j < 4; j++) {
+            iv2 active_pos = active_positions[i];
+            if(iv2_eq(active_pos, iv2_add(root_pos, cardinals[j]))) {
+                // VOLATILE: Dangerous casts taking advantage of level format.
+                i16* other = (i16*)(&levels[i]);
+                i16* place = (i16*)(root);
+                if(wire_rather_than_unwire) {
+                    other[other_exit_offsets[j]] = root_index;
+                    place[j] = i;
+                } else {
+                    other[other_exit_offsets[j]] = 0;
+                    place[j] = 0;
+                }
+            }
+        }
+    }
+    if(!wire_rather_than_unwire) {
+        root->exit_up = 0;
+        root->exit_left = 0;
+        root->exit_down = 0;
+        root->exit_right = 0;
+    }
+}
+
 void push_world_lstack(i16* lstack, iv2* lstack_positions, iv2* active_positions, i32* lstack_len, i32 level, iv2 pos) {
     active_positions[level] = pos;
     lstack[*lstack_len] = level;
@@ -9,10 +45,8 @@ void mode_world_viewer_update(Game* game, DrawList* draw_list, Audio* audio, f32
 	draw_list->minified = true;
 
 	if(input_button_pressed(game->input_buttons[BUTTON_EDITOR])) {
-    	File save_file = file_open(string_const(WORLD_PATH_FROM_BIN), FILE_OPEN_WRITE);
-    	world_save(&save_file, game->world);
     	draw_list->minified = false;
-    	game->mode = MODE_GAME;
+    	game->mode = MODE_EDITOR;
 	}
 
     Level* levels    = game->world->levels;
@@ -40,8 +74,7 @@ void mode_world_viewer_update(Game* game, DrawList* draw_list, Audio* audio, f32
 
         Level* level = &levels[index];
         if(pos.y > -96.0) {
-            printf("drawing %d at pos %f %f\n", count, pos.x, pos.y);
-            draw_level_tiles(level, draw_list, pos);
+            draw_level_tiles(game, level, draw_list, pos);
         }
 
         if(level->exit_up != 0 && active[level->exit_up] == 0) {
@@ -56,7 +89,6 @@ void mode_world_viewer_update(Game* game, DrawList* draw_list, Audio* audio, f32
         if(level->exit_right != 0 && active[level->exit_right] == 0) {
             push_world_lstack(lstack, lstack_positions, active_positions, &lstack_len, level->exit_right, iv2_add(ipos, iv2_new(1, 0)));
         }
-        printf("lstack = %d\n", lstack_len);
     }
 
     switch(game->world_viewer_mode) {
@@ -90,10 +122,32 @@ void mode_world_viewer_update(Game* game, DrawList* draw_list, Audio* audio, f32
                     game->world_viewer_mode = 1;
                     game->world_viewer_place_offset = iv2_new(1, 0);
             	}
-        	}
-
-            if(input_button_pressed(game->input_buttons[BUTTON_QUIT])) {
-
+        	} else if(input_button_pressed(game->input_buttons[BUTTON_QUIT])) {
+                rewire_level_exits(
+                    level_cur,
+                    index_cur,
+                    iv2_new(0, 0), 
+                    active, 
+                    active_positions, 
+                    levels, 
+                    false);
+                f32 closest_dist = 10000.0;
+                i32 closest_index = -1;
+                for(i32 i = 0; i < LEVELS_MAX; i++) {
+                    if(i == index_cur) continue;
+                    if(active[i] == 1) {
+                        f32 dist = iv2_distance(active_positions[i], iv2_new(0, 0));
+                        if(dist < closest_dist) {
+                            closest_index = i;
+                            closest_dist = dist;
+                        }
+                    }
+                }
+                if(closest_index = -1) {
+                    game->state.level_index = 1;
+                } else {
+                    game->state.level_index = closest_index;
+                }
             }
 
             draw_list->minified = false;
@@ -128,7 +182,7 @@ void mode_world_viewer_update(Game* game, DrawList* draw_list, Audio* audio, f32
             // Draw selection in place
             Level* place_level = &levels[banked[game->world_viewer_level_select_index]];
             v2 draw_pos = v2_scale(v2_from_iv2(game->world_viewer_place_offset), 64.0);
-            draw_level_tiles(place_level, draw_list, draw_pos);
+            draw_level_tiles(game, place_level, draw_list, draw_pos);
 
             // Draw list below
             for(i32 i = -5; i < 4; i++) {
@@ -138,7 +192,7 @@ void mode_world_viewer_update(Game* game, DrawList* draw_list, Audio* audio, f32
 
                 Level* draw_level = &levels[banked[banked_index]];
                 f32 x = i * 96.0;
-                draw_level_tiles(draw_level, draw_list, v2_new(x, -224.0));
+                draw_level_tiles(game, draw_level, draw_list, v2_new(x, -224.0));
             }
 
             // Draw selection level index
@@ -149,25 +203,14 @@ void mode_world_viewer_update(Game* game, DrawList* draw_list, Audio* audio, f32
             // Place selection, check every direction for active levels and
             // fixing their exit indices.
             if(input_button_pressed(game->input_buttons[BUTTON_EDITOR_PLACE])) {
-                iv2 cardinals[4] = { iv2_new(0, 1), iv2_new(-1, 0), iv2_new(0, -1), iv2_new(1, 0) };
-                // Offsets into level struct, mapping up to down, left to right, etc and so on
-                i32 other_exit_offsets[4] = { 2, 3, 0, 1 };
-                for(i32 i = 0; i < LEVELS_MAX; i++) {
-                    if(active[i] == 0) {
-                        continue;
-                    }
-                    for(i32 j = 0; j < 4; j++) {
-                        iv2 active_pos = active_positions[i];
-                        if(iv2_eq(active_pos, iv2_add(game->world_viewer_place_offset, cardinals[j]))) {
-                            printf("its me!\n");
-                            // VOLATILE: Dangerous casts taking advantage of level format.
-                            i16* other = (i16*)(&levels[i]);
-                            i16* place = (i16*)(place_level);
-                            other[other_exit_offsets[j]] = banked[game->world_viewer_level_select_index];
-                            place[j] = i;
-                        }
-                    }
-                }
+                rewire_level_exits(
+                    place_level, 
+                    banked[game->world_viewer_level_select_index],
+                    game->world_viewer_place_offset, 
+                    active, 
+                    active_positions, 
+                    levels, 
+                    true);
                 game->world_viewer_mode = 0;
             } else if(input_button_pressed(game->input_buttons[BUTTON_QUIT])) {
                 game->world_viewer_mode = 0;
@@ -176,4 +219,5 @@ void mode_world_viewer_update(Game* game, DrawList* draw_list, Audio* audio, f32
     }
 
     draw_list->minified = false;
+    draw_simple_text(draw_list, string_const("WORLD"), v2_new(0, 60), 1);
 }
