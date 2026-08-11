@@ -200,11 +200,6 @@ void update_music_state(Game* game, Audio* audio, f32 dt) {
         bass->amp *= 1.2;
     }
 
-    if(game->mute) {
-        melody->amp = 0.0;
-        bass->amp = 0.0;
-    }
-
     AudioNoiseChannel* noise = &audio->noise_channels[0];
     f32 move_t = fmod(game->time, 1.0f);
     i32 drum_i = ((i64)(game->time * 3.0f) % 12);
@@ -216,6 +211,12 @@ void update_music_state(Game* game, Audio* audio, f32 dt) {
     noise->amp = clamp(drum_track[drum_i] * 0.166f - drum_i_phase, 0.0f, 1.0f);
     if(hannah_moved_this_cycle && move_t < 0.5f) {
         noise->amp += 0.02f + move_t * 0.10f;
+    }
+
+    if(game->mute) {
+        melody->amp = 0.0;
+        bass->amp = 0.0;
+        noise->amp = 0.0;
     }
 
     // Moving platform sounds

@@ -111,7 +111,7 @@ u64 file_path_last_modified(String path) {
     return file_stat.st_mtim.tv_sec;
 }
 
-// TODO: reduntant two functions below.
+// NOTO: reduntant two functions below.
 String* file_names_in_directory(String path, i32* out_path_count, Stack* stack) {
     char buf[path.len+1];
     String cpath = string_init(buf, path.len+1);
@@ -238,7 +238,7 @@ u64 file_read_string_token(File* file, String* dst, char delimiter) {
     return len;
 }
 
-// TODO: factor int/float conversions into string_to_* functions.
+// NOTO: factor int/float conversions into string_to_* functions.
 i64 file_read_int_token(File* file, char delimiter) {
     String tmp = string_init((char[256]){}, 256);
     file_read_string_token(file, &tmp, delimiter);

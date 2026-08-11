@@ -93,7 +93,7 @@ static inline f32 radians(f32 degrees);
 // 4x4 matrices
 // These are all column major.
 // 
-// TODO: Make res (dst) the first parameter rather than last.
+// NOTO: Make res (dst) the first parameter rather than last.
 void m4_identity(f32* res);
 void m4_perspective(f32 fovy, f32 aspect, f32 zfar, f32 znear, f32* res);
 void m4_lookat(v3 origin, v3 target, v3 up, f32* res);
@@ -109,7 +109,7 @@ void quat_inverse(f32* q, f32* res);
 #ifdef CSM_IMPLEMENTATION
 
 static inline bool within_epsilon(f32 a, f32 b, f32 e) {
-    return (abs(a - b) <= e);
+    return (fabs(a - b) <= e);
 }
 
 static inline f32 min(f32 a, f32 b) {
@@ -400,7 +400,7 @@ void m4_lookat(v3 origin, v3 target, v3 up, f32* res) {
 }
 
 void m4_mul(f32* a, f32* b, f32* res) {
-	// TODO: just do the algorithm
+	// NOTO: just do the algorithm
 	f32 a00 = a[0];
 	f32 a01 = a[1];
 	f32 a02 = a[2]; 

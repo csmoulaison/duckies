@@ -8,7 +8,6 @@ void entity_follow_target(Game* game, Entity* entity, iv2 target) {
             entity->pos_prev = target;
             entity->pos_prev_visible = v2_from_iv2(target);
         } else {
-            printf("this is what we call a car\n");
             if(!iv2_eq(entity->pos_cur, target)) {
                 entity_move(entity, direction_from_target(entity, target));
             } else {
@@ -18,30 +17,65 @@ void entity_follow_target(Game* game, Entity* entity, iv2 target) {
     }
 }
 
+// Buttons
+Button* place_button(LevelState* state, iv2 pos) {
+    Button* button = &state->buttons[state->buttons_len];
+    state->buttons_len++;
+    button->pos = pos;
+    return button;
+}
+
+// Sign
+void place_sign(LevelState* state, iv2 pos, i32 index, i64 sprite) {
+    Sign* sign = &state->signs[state->signs_len];
+    state->signs_len++;
+
+    sign->index = index;
+    sign->pos = pos;
+    sign->sprite = sprite;
+}
+
+// Gates
+Gate* place_button_gate(LevelState* state, iv2 pos, i32* button_indices, i32 buttons_len, i32 permagate_index) {
+    Gate* gate = &state->gates[state->gates_len];
+    state->gates_len++;
+    gate->pos = pos;
+    gate->trigger_type = TRIGGER_BUTTONS;
+    gate->trigger.buttons.len = buttons_len;
+    gate->permagate_index = permagate_index;
+    for(i32 i = 0; i < buttons_len; i++) {
+        gate->trigger.buttons.indices[i] = button_indices[i];
+    }
+    return gate;
+}
+
 // Egg
-Entity* place_egg(LevelState* state, iv2 pos, i32 egg_index) {
-    state->level_egg_exists = true;
-    state->level_egg_index = egg_index;
-    state->level_egg_pos = pos;
+void place_egg(LevelState* state, iv2 pos, i32 egg_index) {
+    state->egg_exists = true;
+    state->egg_index = egg_index;
+    state->egg_pos = pos;
 }
 
 // Car
-Entity* push_car(LevelState* state, i64 sprite, i32 width) {
+// palette is not a 1:1 with actual palettes.
+i32 car_palette_map[3] = { 0, 5, 6 };
+Entity* push_car(LevelState* state, i64 sprite, i32 width, i32 car_palette) {
     Entity* car = &state->cars[state->cars_len];
     state->cars_len++;
     car->sprite_handle = sprite;
     car->car_width = width;
+    car->palette_swap = car_palette_map[car_palette];
     return car;
 }
 
-void platform_car_cycle_ltr(Game* game, Entity* car, i32 x, i32 y, i32 cycle_len) {
+void platform_car_cycle_rtl(Game* game, Entity* car, i32 x, i32 y, i32 cycle_len) {
     LevelState* state= &game->state;
     i32 pos_i = (state->cycle_index + x) % cycle_len;
     iv2 target = iv2_new(7 + car->car_width - pos_i, y);
     entity_follow_target(game, car, target);
 }
 
-void platform_car_cycle_rtl(Game* game, Entity* car, i32 x, i32 y, i32 cycle_len) {
+void platform_car_cycle_ltr(Game* game, Entity* car, i32 x, i32 y, i32 cycle_len) {
     LevelState* state= &game->state;
     i32 pos_i = (state->cycle_index + x) % cycle_len;
     iv2 target = iv2_new(0 - car->car_width + pos_i, y);

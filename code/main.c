@@ -10,6 +10,7 @@
 #define CSM_MODULE_ALSA
 
 #define DEBUG_STACK 0
+#define DEBUG_CAPACITY_WARNING 1
 #define BUFFER_TRACKING 1
 #include "csm_core/core.h"
 
@@ -69,6 +70,7 @@ i32 main(i32 argc, char** argv) {
 	window_register_keycode(&ctx->window, KEYCODE_E);
 	window_register_keycode(&ctx->window, KEYCODE_R);
 	window_register_keycode(&ctx->window, KEYCODE_M);
+	window_register_keycode(&ctx->window, KEYCODE_G);
 	window_register_keycode(&ctx->window, KEYCODE_UP);
 	window_register_keycode(&ctx->window, KEYCODE_LEFT);
 	window_register_keycode(&ctx->window, KEYCODE_DOWN);

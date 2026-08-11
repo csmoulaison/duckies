@@ -1,5 +1,14 @@
 #include "draw_tiles.c"
 
+#define BUTTON_PRESS_TIME 0.5
+#define GATE_OPEN_TIME 0.75
+
+typedef struct {
+    i32 sprite;
+    i32 frame;
+    i32 palette;
+} TileDrawInfo;
+
 void draw_num(DrawList* draw_list, i32 num, v2 pos) {
     i8 num_ones = num % 10;
     i8 num_tens = num / 10;
@@ -15,18 +24,42 @@ void draw_num(DrawList* draw_list, i32 num, v2 pos) {
     draw_sprite(draw_list, SPRITE_NUMS, num_ones, v2_add(v2_new(num_off, 0.0), pos), num_palette);
 }
 
-u64 type_sprite_from_tile(Tile tile) {
+TileDrawInfo tile_draw_info(Tile tile, i32 i) {
     switch(tile.type) {
         case TILE_TYPE_GROUND: {
             switch(tile.subtype) {
-                case 0: return SPRITE_GRASS;
-                case 1: return SPRITE_ROAD;
-                default: return SPRITE_MAN;
+                // Grass
+                case 0: {
+                    u32 off_i = i + (i / 8);
+                    i32 pl = 0;
+                    if(off_i % 2 == 1) pl = 4;
+                    return (TileDrawInfo){ SPRITE_GRASS, 0, pl };
+                } break; 
+                // Road top
+                case 1: {
+                    return (TileDrawInfo){ SPRITE_ROAD, 0, 0 };
+                } break;
+                // Road bottom
+                case 2: {
+                    return (TileDrawInfo){ SPRITE_ROAD, 1, 0 };
+                } break;
+                // Road whiteline top
+                case 3: {
+                    return (TileDrawInfo){ SPRITE_ROAD, 2, 0 };
+                } break;
+                // Road whiteline bottom
+                case 4: {
+                    return (TileDrawInfo){ SPRITE_ROAD, 3, 0 };
+                } break;
+                default: return (TileDrawInfo){ SPRITE_MAN, 0, 0 };
             }
         } break;
-        case TILE_TYPE_WATER:  return SPRITE_WATER;
-        default: return SPRITE_MAN;
+        case TILE_TYPE_WATER:  {
+            return (TileDrawInfo){ SPRITE_WATER, 0, 0 };
+        } break;
+        default: return (TileDrawInfo){ SPRITE_MAN, 0, 0 };
     }
+    panic();
 }
 
 u64 flag_sprite_from_tile(Tile tile) {
@@ -37,55 +70,21 @@ u64 flag_sprite_from_tile(Tile tile) {
 }
 
 void draw_level_tiles(Game* game, Level* level, DrawList* draw_list, v2 pos_offset) {
-    LevelPacket pk = {};
-    pk.self = level;
-    if(level->exit_up != 0) {
-        pk.up = &game->world->levels[level->exit_up];
-        if(pk.up->exit_left != 0) {
-            pk.ul = &game->world->levels[pk.up->exit_left];
-        }
-        if(pk.up->exit_right!= 0) {
-            pk.ur = &game->world->levels[pk.up->exit_right];
-        }
-    }
-    if(level->exit_left != 0) {
-        pk.left = &game->world->levels[level->exit_left];
-    }
-    if(level->exit_down != 0) {
-        pk.down = &game->world->levels[level->exit_down];
-        if(pk.down->exit_left != 0) {
-            pk.dl = &game->world->levels[pk.down->exit_left];
-        }
-        if(pk.down->exit_right!= 0) {
-            pk.dr = &game->world->levels[pk.down->exit_right];
-        }
-    }
-    if(level->exit_right != 0) {
-        pk.right = &game->world->levels[level->exit_right];
-    }
-
-	draw_clear_color(draw_list, v4_new(0.2f, 0.2f, 0.2f, 1.0f));
+    LevelPacket pk = make_level_packet(game, level);
+	draw_clear_color(draw_list, v4_new(0.0f, 0.0f, 0.0f, 1.0f));
     for(i32 i = 0; i < 64; i++) {
         Tile tile = level->tiles[i];
-        u32 off_i = i + (i / 8);
-        i32 type_pl = 0;
-        i32 cap_pl = 4;
-        if(off_i % 2 == 1) {
-            type_pl = 4;
-            cap_pl = 0;
-        }
+        TileDrawInfo info = tile_draw_info(tile, i);
+        v2 draw_pos = v2_add(pixel_pos_from_index(i), pos_offset);
+        draw_sprite(draw_list, info.sprite, info.frame, draw_pos, info.palette);
 
-        i32 cliff_frame = 0;
-        i32 cap_frame = -1; 
         bool tile_cliff = (tile.flags & TILE_FLAG_CLIFF);
         if(tile_cliff) {
-            cliff_frame = tile_cliff_frame(pos_from_index(i), &pk, &cap_frame);
-        }
-
-        v2 draw_pos = v2_add(pixel_pos_from_index(i), pos_offset);
-        draw_sprite(draw_list, type_sprite_from_tile(tile), 0, draw_pos, type_pl);
-
-        if(tile_cliff) {
+            i32 cliff_frame = 0;
+            i32 cap_frame = -1; 
+            if(tile_cliff) {
+                cliff_frame = tile_cliff_frame(pos_from_index(i), &pk, &cap_frame);
+            }
             draw_sprite(draw_list, flag_sprite_from_tile(tile), cliff_frame, draw_pos, 0);
             if(cap_frame != -1) {
                 draw_sprite_layer(draw_list, SPRITE_CLIFF, cap_frame, v2_add(draw_pos, v2_new(0.0, 8.0)), 0, 1);
@@ -134,40 +133,89 @@ void update_visual_state(Game* game, DrawList* draw_list, v2 pos_offset, f32 dt)
 
     // Cars
     for(i32 i = 0; i < state->cars_len; i++) {
-
         Entity* car = &state->cars[i];
         v2 draw_pos = entity_draw_pos(draw_list, car, dt, 0, pos_offset);
-        draw_sprite_animated_frame_range(draw_list, car->sprite_handle, anim_t, draw_pos, 0, 1, 0);
+        draw_sprite_animated_frame_range(draw_list, car->sprite_handle, anim_t, draw_pos, 0, 1, car->palette_swap);
+    }
+
+    // Buttons
+    for(i32 i = 0; i < state->buttons_len; i++) {
+        Button* button = &state->buttons[i];
+        v2 draw_pos = v2_add(v2_scale(v2_from_iv2(button->pos), 8.0), pos_offset);
+        button->transition_t += dt / BUTTON_PRESS_TIME;
+        if(button->transition_t > 1.0) {
+            button->transition_t = 0.99;
+        }
+        f32 anim_t = button->transition_t;
+        switch(button->state) {
+            case BUTTON_OFF: {
+                anim_t = 1.0 - button->transition_t;
+            } break;
+            case BUTTON_ON: {} break;
+            default: panic();
+        }
+        draw_sprite_animated(draw_list, SPRITE_BUTTON, anim_t, draw_pos, 0);
+    }
+
+    // Gates
+    for(i32 i = 0; i < state->gates_len; i++) {
+        Gate* gate = &state->gates[i];
+        v2 draw_pos = v2_add(v2_scale(v2_from_iv2(gate->pos), 8.0), pos_offset);
+        gate->transition_t += dt / GATE_OPEN_TIME;
+        if(gate->transition_t >= 1.0) {
+            gate->transition_t = 0.99;
+        }
+        if(gate->transition_t <= 0.0) {
+            gate->transition_t = 0.01;
+        }
+        switch(gate->state) {
+            case GATE_CLOSED: {
+                draw_sprite_animated_frame_range(draw_list, SPRITE_GATE, gate->transition_t, draw_pos, 4, 7, 0);
+            } break;
+            case GATE_OPEN: {
+                draw_sprite_animated_frame_range(draw_list, SPRITE_GATE, gate->transition_t, draw_pos, 0, 4, 0);
+            } break;
+            default: panic();
+        }
     }
 
     // Egg
-    if(state->level_egg_exists) {
-        v2 egg_draw_pos = v2_scale(v2_from_iv2(state->level_egg_pos), 8.0);
+    if(state->egg_exists) {
+        v2 egg_draw_pos = v2_scale(v2_from_iv2(state->egg_pos), 8.0);
         egg_draw_pos = v2_add(egg_draw_pos, pos_offset);
-        if(state->level_egg_collected) {
-            draw_sprite(draw_list, SPRITE_DUCK_EXPLODE, 6, egg_draw_pos, 0);
-        } else {
-            if(state->level_egg_broken) {
-                if(state->level_egg_t > 1.0) {
-                    state->level_egg_t = 0.99;
-                }
-            }
-            draw_sprite_animated_frame_range(draw_list, SPRITE_DUCK_EXPLODE, state->level_egg_t, egg_draw_pos, 0, 5, 0);
-        } 
+        EggState egg_state = state->egg_states[state->egg_index];
+        switch(egg_state) {
+            case EGG_UNBROKEN: {
+                draw_sprite(draw_list, SPRITE_DUCK_EXPLODE, 0, egg_draw_pos, 0);
+            } break;
+            case EGG_BREAKING: {
+                draw_sprite_animated_frame_range(draw_list, SPRITE_DUCK_EXPLODE, state->egg_t, egg_draw_pos, 0, 5, 0);
+            } break;
+            case EGG_BROKEN: {
+                draw_sprite(draw_list, SPRITE_DUCK_EXPLODE, 5, egg_draw_pos, 0);
+            } break;
+            case EGG_COLLECTED: {
+                draw_sprite(draw_list, SPRITE_DUCK_EXPLODE, 6, egg_draw_pos, 0);
+            } break;
+            default: panic();
+        }
     }
 
-    // Frog
-    if(state->frog_exists) {
-        v2 frog_draw_pos = v2_scale(v2_from_iv2(state->frog_pos), 8.0);
-        frog_draw_pos = v2_add(frog_draw_pos, pos_offset);
-        draw_sprite(draw_list, SPRITE_FROG, 0, frog_draw_pos, 0);
+    // Signs
+    for(i32 i = 0; i < state->signs_len; i++) {
+        Sign* sign = &state->signs[i];
+        v2 sign_draw_pos = v2_scale(v2_from_iv2(sign->pos), 8.0);
+        sign_draw_pos = v2_add(sign_draw_pos, pos_offset);
+        draw_sprite(draw_list, sign->sprite, 0, sign_draw_pos, 0);
     }
 
     // Marchers in reverse order.
     for(i32 i = state->marchers_len - 1; i >= 0; i--) {
         Entity* entity = &state->marchers[i];
         v2 draw_pos = entity_draw_pos(draw_list, entity, dt, 0, pos_offset);
-        draw_sprite_animated(draw_list, entity->sprite_handle, (game->time + entity->anim_offset_t) * 0.5f, draw_pos, 0);
+        f32 t = (game->time + entity->anim_offset_t);
+        // marcher
+        draw_sprite_animated(draw_list, entity->sprite_handle, t * 0.5f, draw_pos, 0);
     }
 }
 

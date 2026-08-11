@@ -30,6 +30,11 @@ char* asset_pack_data = NULL;
 #define MARCHERS_MAX       1 + DUCKS_MAX
 #define PLATFORMS_MAX      32
 #define CARS_MAX           32
+#define BUTTONS_MAX        16
+#define GATES_MAX          16
+#define GATE_BUTTONS_MAX   16
+#define PERMAGATES_MAX     64
+#define SIGNS_MAX          8
 
 #define TIME_SCALE         1.25f
 #define MOVE_QUEUE_MAX     64
@@ -37,10 +42,9 @@ char* asset_pack_data = NULL;
 #define MOVE_CHAIN_SIZE    256
 #define MSG_LEN_MAX        16
 
-#define STARTING_DUCKS     0
+#define STARTING_DUCKS     2
 
-#define ROOT_NOTE_FROG 100.0
-#define ROOT_NOTE_DUCK 400.0
+f32 debug_timescale = 1.0;
 
 typedef enum {
     MOVE_NONE  = 0,
@@ -69,6 +73,7 @@ typedef struct {
     MoveDirection     pulled_move_this_cycle;
     PlatformSinkState sink_state;
     i32               car_width;
+    i32               palette_swap;
 } Entity;
 
 typedef enum {
@@ -103,8 +108,60 @@ typedef enum {
 
 typedef enum {
     CUT_NONE,
-    CUT_FROG_PAUSE
+    CUT_FROG_PAUSE,
+    CUT_FROG_INVITATION,
+    CUT_FROG_INVITATION_2
 } CutsceneMode;
+
+typedef enum {
+    EGG_UNBROKEN,
+    EGG_BREAKING,
+    EGG_BROKEN,
+    EGG_COLLECTED
+} EggState;
+
+typedef enum {
+    BUTTON_OFF,
+    BUTTON_ON
+} ButtonState;
+
+typedef struct {
+    ButtonState state;
+    iv2         pos;
+    f32         transition_t;
+} Button;
+
+typedef enum {
+    GATE_CLOSED,
+    GATE_OPEN
+} GateState;
+
+typedef enum {
+    TRIGGER_NONE,
+    TRIGGER_BUTTONS
+} GateTrigger;
+
+typedef struct {
+    GateState   state;
+    iv2         pos;
+    f32         transition_t;
+    i32         permagate_index;
+
+    GateTrigger trigger_type;
+    union {
+        struct {
+            u8 indices[GATE_BUTTONS_MAX];
+            u8 len;
+        } buttons;
+    } trigger;
+} Gate;
+
+typedef struct {
+    i32 index;
+    iv2 pos;
+    i64 sprite;
+    i32 talk_count;
+} Sign;
 
 // Must never contain unstable references, because reloads are just a memcpy.
 typedef struct {
@@ -119,22 +176,26 @@ typedef struct {
     Entity        cars[CARS_MAX];
     i32           cars_len;
 
+    Button        buttons[BUTTONS_MAX];
+    i32           buttons_len;
+
+    Gate          gates[GATES_MAX];
+    i32           gates_len;
+    bool          permagates_open[PERMAGATES_MAX];
+
+    Sign          signs[SIGNS_MAX];
+    i32           signs_len;
+
     i32           level_index;
     i32           level_index_prev;
     v2            level_prev_offset_pos;
 
     // Level egg state
-    iv2           level_egg_pos;
-    bool          level_egg_exists;
-    i32           level_egg_index;
-    bool          level_egg_broken;
-    bool          level_egg_collected;
-    f32           level_egg_t;
-
-    // Characters
-    bool          frog_exists;
-    i32           frog_index;
-    iv2           frog_pos;
+    iv2           egg_pos;
+    bool          egg_exists;
+    i32           egg_index;
+    f32           egg_t;
+    EggState      egg_states[2];
 
     union {
         Entity marchers[MARCHERS_MAX]; // ducks and hannah
@@ -172,6 +233,7 @@ typedef struct {
     f32              level_reset_t;
     f32              transition_t;
     CutsceneMode     cutscene_mode;
+    bool             god_mode;
 
     // Dialogue
     String           msg[MSG_LEN_MAX];
@@ -180,8 +242,8 @@ typedef struct {
     i32              msg_char_cur;
     f32              msg_char_t;
     bool             msg_speeding;
-    f32              msg_sound_root_note;
-    f32              msg_sound_char_note;
+    f32              msg_char_pitch;
+    i32              msg_sound_type;
     i64              msg_portrait;
 
     // Editor modes
@@ -211,12 +273,12 @@ GAME_INIT(game_init) {
 	memset(game, 0, sizeof(Game));
 	asset_pack_data = asset_memory;
 
-#ifndef __EMSCRIPTEN__
+//#ifndef __EMSCRIPTEN__
 	// RELEASE: this is for live editing only
 	World* world = world_asset(asset_pack_data, WORLD_MAIN);
 	memcpy(&game->world_copy, world, sizeof(World));
 	game->world = &game->world_copy;
-#endif
+//#endif
 
     for(i32 i = 0; i < LEVELS_MAX; i++) {
         Level* level = &game->world->levels[i];
@@ -226,7 +288,9 @@ GAME_INIT(game_init) {
 
 	game->new_cycle_this_frame = true;
 	game->state.level_index = 3;
+	game->state.level_index = 14;
 	game->mode = MODE_GAME;
+	game->mute = true;
 
 	// setup entities. later, there will be structs for each type that reference
 	// entity indices. A subservient tool.
@@ -234,8 +298,8 @@ GAME_INIT(game_init) {
 	state->marchers_len = STARTING_DUCKS + 1;
 	for(i32 i = 0; i < state->marchers_len; i++) {
     	Entity* entity = &state->marchers[i];
-    	entity->pos_cur = iv2_new(2 - i, 1);
-    	entity->pos_prev = iv2_new(2 - i - 1, 1);
+    	entity->pos_cur = iv2_new(2 - i, 0);
+    	entity->pos_prev = iv2_new(2 - i - 1, 0);
     	entity->pos_lead = entity->pos_prev;
     	entity->pos_visible = v2_from_iv2(entity->pos_cur);
     	entity->pos_prev_visible = v2_from_iv2(entity->pos_prev);
@@ -256,6 +320,8 @@ GAME_UPDATE(game_update) {
 	Game* game = (Game*)game_memory;
 	Stack frame_stack = stack_from_memory(game_memory + sizeof(Game), MEGABYTE / 2, string_const("GameFrame"));
 
+	dt *= debug_timescale;
+
 	input_clear_buttons(game->input_buttons, BUTTON_COUNT);
 	input_release_buttons_if_window_defocused(events, events_len, game->input_buttons, BUTTON_COUNT);
 	game->input_buttons[BUTTON_LEFT]         = input_update_key_button(events, events_len, game->input_buttons[BUTTON_LEFT],         KEYCODE_A);
@@ -268,12 +334,16 @@ GAME_UPDATE(game_update) {
 	game->input_buttons[BUTTON_RESET]        = input_update_key_button(events, events_len, game->input_buttons[BUTTON_RESET],        KEYCODE_R);
 	game->input_buttons[BUTTON_MUTE]         = input_update_key_button(events, events_len, game->input_buttons[BUTTON_MUTE],         KEYCODE_M);
 	game->input_buttons[BUTTON_QUIT]         = input_update_key_button(events, events_len, game->input_buttons[BUTTON_QUIT],         KEYCODE_ESCAPE);
+	game->input_buttons[BUTTON_GOD]          = input_update_key_button(events, events_len, game->input_buttons[BUTTON_GOD],          KEYCODE_G);
 	game->input_buttons[BUTTON_EDITOR]       = input_update_key_button(events, events_len, game->input_buttons[BUTTON_EDITOR],       KEYCODE_TAB);
 	game->input_buttons[BUTTON_EDITOR_PLACE] = input_update_key_button(events, events_len, game->input_buttons[BUTTON_EDITOR_PLACE], KEYCODE_SPACE);
 
 	if(input_button_pressed(game->input_buttons[BUTTON_MUTE])) {
     	game->mute = !game->mute;
 	}
+
+	AudioWaveChannel* wave = &audio->wave_channels[3];
+	wave->amp = 0.0;
 
 	game->debug_stepping = false;
 	//game->state.level_index = 2;

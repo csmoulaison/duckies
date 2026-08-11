@@ -15,6 +15,7 @@
 #define CSM_MODULE_SPRITE
 
 #define DEBUG_STACK 0
+#define DEBUG_CAPACITY_WARNING 1
 #define BUFFER_TRACKING 1
 #include "csm_core/core.h"
 
@@ -26,8 +27,8 @@
 #include "gl_render.c"
 
 #define FRAME_LENGTH 0.01f
-#define FRAME_MEMORY_SIZE (MEGABYTE * 2)
-#define GAME_MEMORY_SIZE (MEGABYTE * 2)
+#define FRAME_MEMORY_SIZE (MEGABYTE * 3)
+#define GAME_MEMORY_SIZE (MEGABYTE * 3)
 #define EVENT_BUFFER_SIZE (MEGABYTE)
 
 #define ROOT_MEMORY_SIZE (sizeof(Context) + GAME_MEMORY_SIZE + FRAME_MEMORY_SIZE)

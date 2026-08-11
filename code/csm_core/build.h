@@ -33,7 +33,7 @@ BuildResult build_dynamic(String name, String main_path, u64 flags, Stack* stack
 BuildResult build_static(String name, String main_path, u64 flags, Stack* stack) {
     system("mkdir -p bin");
     system("mkdir -p build");
-    // TODO: Shouldn't be hardcoded.
+    // NOTO: Shouldn't be hardcoded.
     system("ld -r -b binary build/asset/pack.data -o build/asset/pack.o");
 
     String cmd = string_from_stack(stack, 8196);
@@ -57,7 +57,7 @@ BuildResult build_static(String name, String main_path, u64 flags, Stack* stack)
     }
 
     string_cat(&cmd, main_path);
-    // TODO: Shouldn't be hardcoded.
+    // NOTO: Shouldn't be hardcoded.
     string_cat(&cmd, string_const(" build/asset/pack.o"));
     string_cat(&cmd, string_const(" -o bin/"));
     string_cat(&cmd, name);
@@ -116,7 +116,7 @@ BuildResult build_dynamic(String name, String main_path, u64 flags, Stack* stack
         return BUILD_RESULT_ERROR;
     }
 
-    // TODO:
+    // NOTO:
     // -rm bin/prog_*
     return BUILD_RESULT_SUCCESS;
 }

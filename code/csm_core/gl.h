@@ -105,7 +105,7 @@ void gl_init_start() {
 #endif
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	// TODO: depth as parameter
+	// NOTO: depth as parameter
 	//glEnable(GL_DEPTH_TEST);
 }
 

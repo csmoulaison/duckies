@@ -1,4 +1,4 @@
-#define TILE_SUB_COUNT 4
+#define TILE_SUB_COUNT 8
 
 void mode_editor_update(Game* game, DrawList* draw_list, Audio* audio, f32 dt) {
     Editor* editor = &game->editor;
@@ -97,10 +97,11 @@ void mode_editor_update(Game* game, DrawList* draw_list, Audio* audio, f32 dt) {
 
     // Draw
     draw_level_tiles(game, level, draw_list, v2_zero());
-    u64 cursor_type_sprite = type_sprite_from_tile(editor->cursor_tile);
+
+    TileDrawInfo tile_info = tile_draw_info(editor->cursor_tile, 0);
     u64 cursor_flag_sprite = flag_sprite_from_tile(editor->cursor_tile);
     v2 pixel_cursor_pos = v2_from_iv2(iv2_scale(editor->cursor_pos, 8));
-    draw_sprite(draw_list, cursor_type_sprite, 0, pixel_cursor_pos, 0);
+    draw_sprite(draw_list, tile_info.sprite, 0, pixel_cursor_pos, 0);
     draw_sprite(draw_list, cursor_flag_sprite, 0, pixel_cursor_pos, 0);
     draw_sprite_animated(draw_list, SPRITE_CURSOR, (f32)(game->frames_since_init / 60.0f), v2_sub(pixel_cursor_pos, v2_new(1.0, 1.0)), 0);
     draw_num(draw_list, state->level_index, v2_new(0.0, 0.0));

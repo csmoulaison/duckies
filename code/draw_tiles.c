@@ -7,84 +7,10 @@
 #define ADJ_DL  1 << 6
 #define ADJ_DR  1 << 7
 
-// Awkward name, its a jam.
-typedef struct {
-    Level* self;
-    Level* up;
-    Level* left;
-    Level* down;
-    Level* right;
-    Level* ul;
-    Level* ur;
-    Level* dl;
-    Level* dr;
-} LevelPacket;
-
-bool offset_tile_is_cliff(iv2 root, iv2 offset, LevelPacket* levels) {
-    Level* check_level = levels->self;
+bool offset_tile_is_cliff(iv2 root, iv2 offset, LevelPacket* packet) {
     iv2 pos = iv2_add(root, offset);
-    if(pos.y < 0) {
-        pos.y += 8;
-        if(pos.x < 0) {
-            if(levels->dl != NULL) {
-                pos.x += 8;
-                check_level = levels->dl;
-            } else {
-                return true;
-            }
-        } else if(pos.x > 7) {
-            if(levels->dr != NULL) {
-                pos.x -= 8;
-                check_level = levels->dr;
-            } else {
-                return true;
-            }
-        } else {
-            if(levels->down != NULL) {
-                check_level = levels->down;
-            } else {
-                return true;
-            }
-        }
-    } else if(pos.y > 7) {
-        pos.y -= 8;
-        if(pos.x < 0) {
-            if(levels->ul != NULL) {
-                pos.x += 8;
-                check_level = levels->ul;
-            } else {
-                return true;
-            }
-        } else if(pos.x > 7) {
-            if(levels->ur != NULL) {
-                pos.x -= 8;
-                check_level = levels->ur;
-            } else {
-                return true;
-            }
-        } else {
-            if(levels->up != NULL) {
-                check_level = levels->up;
-            } else {
-                return true;
-            }
-        }
-    } else if(pos.x < 0) {
-        if(levels->left != NULL) {
-            pos.x += 8;
-            check_level = levels->left;
-        } else {
-            return true;
-        }
-    } else if(pos.x > 7) {
-        if(levels->right != NULL) {
-            pos.x -= 8;
-            check_level = levels->right;
-        } else {
-            return true;
-        }
-    }
-    if(check_level->tiles[index_from_pos(pos)].flags & TILE_FLAG_CLIFF) {
+    Tile tile = tile_from_pos_and_level_packet(pos, packet);
+    if(tile.flags & TILE_FLAG_CLIFF) {
         return true;
     }
     return false;

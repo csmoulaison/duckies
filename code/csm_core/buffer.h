@@ -1,7 +1,7 @@
 #ifndef csm_buffer_h_INCLUDED
 #define csm_buffer_h_INCLUDED
 
-// TODO: Debug build code for tracking suballocations.
+// NOTO: Debug build code for tracking suballocations.
 
 #ifndef BUFFER_BOUNDS_CHECKING
 #define BUFFER_BOUNDS_CHECKING true

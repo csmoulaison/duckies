@@ -45,8 +45,8 @@ u32 palette_indices[PALETTE_DATA_SIZE] = {
     0,  8,  8,  8,  8,  8,  8,  8,  8,  8, 8,  8,  8,  8,  8,  8,  // black
     0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 0,  0,  0,  0,  0,  0, // all clear
     0,  1,  2,  3,  4,  5,  7,  6,  8,  9, 10, 11, 12, 13, 14, 15, // tile checkerboard
-    0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15, // unset
-    0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15, // unset
+    0,  1,  2,  3,  6,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15, // car remap 1
+    0,  1,  2,  3,  2,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15, // car remap 2
     0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15, // unset
 };
 
@@ -114,7 +114,7 @@ i32 main(i32 argc, char** argv) {
     if(argc > 1 && strcmp(argv[1], "web") == 0) {
         system("source extern/emsdk/emsdk_env.sh && \
             emcc code/emscripten.c -o bin/main.html -sUSE_SDL=2 -sMIN_WEBGL_VERSION=2 -sMAX_WEBGL_VERSION=2 -sFULL_ES3=1 \
-            --embed-file build/asset --embed-file code/shaders@/shaders \
+            --embed-file build/asset --embed-file code/shaders@/shaders --embed-file assets/world/@/../assets/world \
             -Wall -Werror -Wno-unused -Wno-format -g -gsource-map -fsanitize=undefined -sASSERTIONS=2 -sSAFE_HEAP=1 -sALLOW_TABLE_GROWTH -sSTACK_SIZE=2000000 --emrun");
     } else {
         u64 flags = BUILD_FLAG_DEBUG | BUILD_FLAG_WARNINGS | BUILD_FLAG_LINK_GL3W | BUILD_FLAG_TARGET_X11 | BUILD_FLAG_LINK_ALSA;

@@ -57,6 +57,3 @@ v2 pixel_pos_from_index(i32 index) {
     return v2_scale(v2_new(index % 8, index / 8), 8.0f);
 }
 
-Tile tile_from_pos(Level* level, iv2 pos) {
-    return level->tiles[index_from_pos(pos)];
-}

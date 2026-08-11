@@ -28,6 +28,7 @@ typedef enum {
 	KEYCODE_E,
 	KEYCODE_R,
 	KEYCODE_M,
+	KEYCODE_G,
 	KEYCODE_UP,
 	KEYCODE_LEFT,
 	KEYCODE_DOWN,
@@ -40,7 +41,7 @@ typedef struct {
 } WindowKeycodeMapping;
 
 typedef struct {
-    // TODO: messy
+    // NOTO: messy
 #ifdef CSM_WINDOW_XLIB
 	Display* display;
 	Window window;
@@ -113,11 +114,14 @@ void window_register_keycode(WindowContext* ctx, u32 keycode) {
     	case KEYCODE_E: {
         	xlib_keysym = XK_e;
     	} break;
-    	case KEYCODE_R: {
-        	xlib_keysym = XK_r;
+    	case KEYCODE_G: {
+        	xlib_keysym = XK_g;
     	} break;
     	case KEYCODE_M: {
         	xlib_keysym = XK_m;
+    	} break;
+    	case KEYCODE_R: {
+        	xlib_keysym = XK_r;
     	} break;
     	case KEYCODE_UP: {
         	xlib_keysym = XK_Up;
@@ -307,7 +311,7 @@ retry:
 }
 
 // Places events in the stack and returns the number of events pulled
-// TODO: grab SDL implementation from jam
+// NOTO: grab SDL implementation from jam
 i32 window_pull_all_events(WindowContext* ctx, Buffer* buffer) {
 	WindowEvent event;
 	i32 count = 0;

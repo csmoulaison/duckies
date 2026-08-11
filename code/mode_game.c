@@ -95,11 +95,13 @@ void mode_game_update(Game* game, DrawList* draw_list, Audio* audio, f32 dt) {
 	// used to calc the effect of the last move
 	bool level_reset = false;
     if(game->half_cycle_this_frame) {
+    	// TODO: if duck (not hannah) is in impassable tile (gate opened on them
+    	// for example), level rest.
         for(i32 i = 0; i < state->marchers_len; i++) { 
             Entity* entity = &state->marchers[i];
             entity->move_this_cycle = MOVE_NONE;
 
-            // Check death if inside bounds
+            // Only check death if inside bounds
             if(entity->pos_cur.x < 0 || entity->pos_cur.x > 7 || entity->pos_cur.y < 0 || entity->pos_cur.y > 7) {
                 continue;
             }
@@ -149,16 +151,56 @@ void mode_game_update(Game* game, DrawList* draw_list, Audio* audio, f32 dt) {
             switch_to_level = level->exit_right;
             level_switch_offset = iv2_new(-1, 0);
         }
+
+        for(i32 i = 0; i < state->buttons_len; i++) {
+            Button* button = &state->buttons[i];
+            ButtonState state_prev = button->state;
+            button->state = BUTTON_OFF;
+            for(i32 j = 0; j < state->marchers_len; j++) {
+                Entity* marcher = &state->marchers[j];
+                if(iv2_eq(marcher->pos_cur, button->pos)) {
+                    button->state = BUTTON_ON;
+                }
+            }
+            if(button->state != state_prev) {
+                button->transition_t = 0.0;
+            }
+        }
+
+        for(i32 i = 0; i < state->gates_len; i++) {
+            Gate* gate = &state->gates[i];
+
+            GateState state_prev = gate->state;
+            gate->state = GATE_OPEN;
+            for(i32 j = 0; j < gate->trigger.buttons.len; j++) {
+                if(gate->permagate_index != -1
+                && state->permagates_open[gate->permagate_index] == true) {
+                    gate->state = GATE_OPEN;
+                    break;
+                }
+                Button* button = &state->buttons[gate->trigger.buttons.indices[j]];
+                if(button->state == BUTTON_OFF) {
+                    gate->state = GATE_CLOSED;
+                    break;
+                }
+            }
+            if(gate->state != state_prev) {
+                gate->transition_t = 0.0;
+            }
+            if(gate->permagate_index != -1 
+            && gate->state == GATE_OPEN) {
+                state->permagates_open[gate->permagate_index] = true;
+            }
+        }
     }
-	if(level_reset || input_button_pressed(game->input_buttons[BUTTON_RESET])) {
+
+	if((level_reset && !game->god_mode) || input_button_pressed(game->input_buttons[BUTTON_RESET])) {
         reset_level(game);
         update_visual_state(game, draw_list, v2_zero(), dt);
         return;
 	}
 
     if(game->new_cycle_this_frame) {
-        // TODO: footstep puff fx
-
         // Reset previous visible position
         for(i32 i = 0; i < state->marchers_len; i++) {
             Entity* marcher = &state->marchers[i];
@@ -166,22 +208,38 @@ void mode_game_update(Game* game, DrawList* draw_list, Audio* audio, f32 dt) {
         }
 
         // Hannah moves if applicable
+        state->hannah_manual_moved_this_cycle = false;
         if(state->input_move != MOVE_NONE) {
             iv2 move_pos = pos_after_direction(hannah, state->input_move);
-            if(state->level_egg_exists && !state->level_egg_broken
-            && iv2_eq(move_pos, state->level_egg_pos)) {
-                game->mode = MODE_EGG_EXPLODE;
-                state->level_egg_t = 0.0;
-            } else if(state->frog_exists && iv2_eq(move_pos, state->frog_pos)) {
-                frog_talk(game);
-            } else {
-                state->hannah_pos_lead_prev = hannah->pos_lead;
-                entity_move(hannah, state->input_move);
-                state->hannah_manual_moved_this_cycle = true;
+            bool backtracking = false;
+            if(pos_in_bounds(move_pos) && ducks_len(state) > 0 && iv2_eq(move_pos, state->ducks[0].pos_cur)) {
+                backtracking = true;
             }
-        } else {
-            state->hannah_manual_moved_this_cycle = false;
+            if(game->god_mode || (!backtracking && pos_passable(game, move_pos))) {
+                state->hannah_manual_moved_this_cycle = true;
+
+                Sign* sign = NULL;
+                for(i32 i = 0; i < state->signs_len; i++) {
+                    if(iv2_eq(move_pos, state->signs[i].pos)) {
+                        sign = &state->signs[i];
+                        break;
+                    }
+                }
+
+                if(state->egg_exists && state->egg_states[state->egg_index] == EGG_UNBROKEN && iv2_eq(move_pos, state->egg_pos)) {
+                    state->egg_states[state->egg_index] = EGG_BREAKING;
+                    game->mode = MODE_EGG_EXPLODE;
+                    state->egg_t = 0.0;
+                } else if(sign != NULL) {
+                    sign_talk(game, sign);
+                } else {
+                    entity_move(hannah, state->input_move);
+                    state->hannah_manual_moved_this_cycle = true;
+                }
+            }
         }
+        state->hannah_pos_lead_prev = hannah->pos_lead;
+
         Entity* hannah_follower = NULL;
         if(ducks_len(state) > 0) {
             hannah_follower = &state->ducks[0];
@@ -253,10 +311,30 @@ void mode_game_update(Game* game, DrawList* draw_list, Audio* audio, f32 dt) {
     // draw
     update_visual_state(game, draw_list, v2_zero(), dt);
 
+    if(input_button_pressed(game->input_buttons[BUTTON_GOD])) {
+        game->god_mode = !game->god_mode;
+    }
+    if(game->god_mode) {
+        draw_simple_text(draw_list, string_const("GOD"), v2_new(27, 58), (i32)(game->time * 2.0) % 2);
+    }
+    if(input_button_pressed(game->input_buttons[BUTTON_LEAVE])) debug_timescale *= 2.0;
+    if(input_button_pressed(game->input_buttons[BUTTON_BECKON])) debug_timescale *= 0.5;
+    if(within_epsilon(debug_timescale, 1.0, 0.1)) {
+        debug_timescale = 1.0;
+    } else {
+        char time_buf[16];
+        String time_str = string_init(time_buf, 16);
+        string_print_int(&time_str, (i32)debug_timescale);
+        string_cat(&time_str, string_const("X"));
+        draw_simple_text(draw_list, time_str, v2_new(29, 53), 0);
+    }
+
     // Debug circle
     //debug_circle_pos = state->platforms[0].pos_cur;
-    //debug_circle_pos = hannah->pos_lead;
-    //draw_sprite_animated(draw_list, SPRITE_DEBUG_CIRCLE, (game->time * 2.0), v2_scale(v2_from_iv2(debug_circle_pos), 8.0f), 0);
+    debug_circle_pos = hannah->pos_lead;
+    draw_sprite_animated(draw_list, SPRITE_DEBUG_CIRCLE, (game->time * 2.0), v2_scale(v2_from_iv2(debug_circle_pos), 8.0f), 0);
+    debug_circle_pos = state->hannah_pos_lead_prev;
+    draw_sprite_animated(draw_list, SPRITE_DEBUG_CIRCLE, (game->time * 4.0), v2_scale(v2_from_iv2(debug_circle_pos), 8.0f), 0);
     //draw_sprite_animated(draw_list, SPRITE_DEBUG_CIRCLE, ((game->time + 1.0) * 2.0f), v2_scale(v2_from_iv2(debug_circle_pos_2), 8.0f), 0);
 
 	if(input_button_pressed(game->input_buttons[BUTTON_EDITOR])) {
@@ -264,6 +342,9 @@ void mode_game_update(Game* game, DrawList* draw_list, Audio* audio, f32 dt) {
 	}
 
     if(switch_to_level != -1) {
+        // TODO: Prevent ducks from previous level from leading to endless
+        // death. Always get them out of the way for switching levels.
+
         printf("switch to level %d\n", switch_to_level);
         state->level_index_prev = state->level_index;
         state->level_index = switch_to_level;
@@ -273,6 +354,10 @@ void mode_game_update(Game* game, DrawList* draw_list, Audio* audio, f32 dt) {
 
         for(i32 i = 0; i < state->marchers_len; i++) {
             entity_offset_teleport(&state->marchers[i], iv2_scale(level_switch_offset, 8));
+        }
+
+        for(i32 i = 0; i < SIGNS_MAX; i++) {
+            state->signs[i].talk_count = 0;
         }
     }
 

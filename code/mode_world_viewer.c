@@ -73,8 +73,14 @@ void mode_world_viewer_update(Game* game, DrawList* draw_list, Audio* audio, f32
         active[index] = 1;
 
         Level* level = &levels[index];
-        if(pos.y > -96.0) {
-            draw_level_tiles(game, level, draw_list, pos);
+        if(game->world_viewer_mode == 0 || pos.y > -96) {
+            if(pos.y > -320 && pos.y < 320 && pos.x > -320 && pos.x < 320) {
+                if(count == 0 && (i32)(game->time * 4.0) % 2 == 0) {
+                    draw_list->palette_override_index = 1;
+                }
+                draw_level_tiles(game, level, draw_list, pos);
+                draw_list->palette_override_index = 0;
+            }
         }
 
         if(level->exit_up != 0 && active[level->exit_up] == 0) {
@@ -89,6 +95,8 @@ void mode_world_viewer_update(Game* game, DrawList* draw_list, Audio* audio, f32
         if(level->exit_right != 0 && active[level->exit_right] == 0) {
             push_world_lstack(lstack, lstack_positions, active_positions, &lstack_len, level->exit_right, iv2_add(ipos, iv2_new(1, 0)));
         }
+
+        count++;
     }
 
     switch(game->world_viewer_mode) {
@@ -143,7 +151,7 @@ void mode_world_viewer_update(Game* game, DrawList* draw_list, Audio* audio, f32
                         }
                     }
                 }
-                if(closest_index = -1) {
+                if(closest_index == -1) {
                     game->state.level_index = 1;
                 } else {
                     game->state.level_index = closest_index;

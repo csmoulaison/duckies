@@ -2,8 +2,8 @@
 
 #ifdef __EMSCRIPTEN__
 
-#define ASSET_PACK_SIZE 138048
-char _binary_build_asset_pack_data_start[138048];
+#define ASSET_PACK_SIZE 138432
+char _binary_build_asset_pack_data_start[138432];
 
 #else
 

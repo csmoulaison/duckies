@@ -16,6 +16,7 @@ typedef enum {
 	BUTTON_MUTE,
 	BUTTON_QUIT,
     // RELEASE: Disable refs to these
+	BUTTON_GOD,
 	BUTTON_EDITOR,
 	BUTTON_EDITOR_PLACE,
 	BUTTON_COUNT
