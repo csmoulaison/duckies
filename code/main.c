@@ -8,6 +8,7 @@
 #define CSM_MODULE_TEXTURE
 #define CSM_MODULE_SPRITE
 #define CSM_MODULE_ALSA
+#define CSM_MODULE_FIEDLER
 
 #define DEBUG_STACK 0
 #define DEBUG_CAPACITY_WARNING 1
@@ -41,6 +42,8 @@ typedef struct {
 	RendererGL    renderer;
 	Audio         audio;
 	AlsaDevice    alsa;
+	f64           time_prev;
+	f64           time_cur;
 } Context;
 
 void update_game_library(GameLibrary* game) {
@@ -83,9 +86,13 @@ i32 main(i32 argc, char** argv) {
 	// game library
 	GameLibrary game = {};
 	update_game_library(&game);
+
 	game.init(game_stack.memory, asset_pack_data);
 	alsa_init(&ctx->alsa, AUDIO_SAMPLE_RATE);
 	audio_init(&ctx->audio);
+
+    ctx->time_cur = time_seconds();
+    ctx->time_prev = 0.0;
 
 	// main loop
 	while(true) {
@@ -93,8 +100,12 @@ i32 main(i32 argc, char** argv) {
 		i32 events_len = window_pull_all_events(&ctx->window, &event_buffer);
 		WindowEvent* events_head = (WindowEvent*)event_buffer.memory;
 		draw_init_list(&ctx->renderer.list, ctx->window.size);
-		// NOW: calc delta time
-		game.update(game_stack.memory, &ctx->renderer.list, &ctx->audio, events_head, events_len, 0.018f);
+
+        ctx->time_prev = ctx->time_cur;
+        ctx->time_cur = time_seconds();
+        f64 dt = ctx->time_cur - ctx->time_prev;
+		
+		game.update(game_stack.memory, &ctx->renderer.list, &ctx->audio, events_head, events_len, dt);
 		i32 sound_samples_count = alsa_write_samples_count(&ctx->alsa);
 		if(sound_samples_count > 0) {
     		f32 sample_buffer[sound_samples_count] = {};

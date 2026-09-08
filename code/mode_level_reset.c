@@ -18,8 +18,8 @@ void mode_level_reset_update(Game* game, DrawList* draw_list, Audio* audio, f32 
         wave->amp = 0.5 - game->level_reset_t;
         wave->freq = 300 - sin(game->level_reset_t * 60.0) * 300.0 - game->level_reset_t * 300.0;
     }
+    game->state.input_move = MOVE_NONE;
 
     override_pallete_from_fade_t(draw_list, game->level_reset_t);
     update_visual_state(game, draw_list, v2_zero(), dt);
-
 }

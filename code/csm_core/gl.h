@@ -92,6 +92,8 @@ u32 gl_compile_shader(const char* src, i32 src_len, GLenum type) {
 		glGetShaderInfoLog(shader, 256, NULL, info);
 		printf(info);
 		panic();
+	} else {
+    	//printf("shader success!\n");
 	}
 	return shader;
 }
@@ -119,6 +121,17 @@ GlProgram gl_create_program(char* vert_src, u32 vert_len, char* frag_src, u32 fr
 	glAttachShader(program, vert);
 	glAttachShader(program, frag);
 	glLinkProgram(program);
+
+    i32 success;
+    glGetProgramiv(program, GL_LINK_STATUS, &success);
+    if(!success) {
+        i32 len = 0;
+        glGetProgramiv(program, GL_INFO_LOG_LENGTH, &len);
+        char log[len];
+        glGetProgramInfoLog(program, len, &len, log);
+        printf("Shader program linking failed: %s\n", log);
+    }
+
 	glDeleteShader(vert);
 	glDeleteShader(frag);
 	return (GlProgram){ .id = program };

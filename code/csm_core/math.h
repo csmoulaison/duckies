@@ -40,6 +40,8 @@ static inline f32  max(f32 a, f32 b);
 static inline f32  clamp(f32 v, f32 min, f32 max);
 static inline f32  move_to_zero(f32 value, f32 amount);
 static inline f32  lerp(f32 a, f32 b, f32 t);
+static inline f32  smoothstep(f32 n);
+static inline i32  true_mod(i32 a, i32 b);
 // IVector2
 static inline iv2  iv2_new(i32 x, i32 y);
 static inline bool iv2_eq(iv2 a, iv2 b);
@@ -142,6 +144,18 @@ static inline f32 move_to_zero(f32 value, f32 amount) {
 
 f32 lerp(f32 a, f32 b, f32 t) {
 	return (1.0f - t) * a + t * b;
+}
+
+static inline f32 smoothstep(f32 n) {
+    return n * n * (3.0 - 2.0 * n);
+}
+
+static inline f32 smootherstep(f32 n) {
+    return n * n / (2.0 * n * n - 2.0 * n + 1.0);
+}
+
+static inline i32 true_mod(i32 a, i32 b) {
+    return ((a % b) + b) % b;
 }
 
 static inline iv2 iv2_new(i32 x, i32 y) {

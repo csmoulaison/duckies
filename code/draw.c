@@ -56,11 +56,20 @@ void draw_sprite(DrawList* list, u64 handle, u32 frame_index, v2 position, i32 p
     draw_sprite_layer(list, handle, frame_index, position, palette_index, 0);
 }
 
-void draw_sprite_animated_frame_range(DrawList* list, u64 handle, f32 t, v2 position, i32 f0, i32 fn, i32 palette_index) {
+void draw_sprite_animated_frame_range_layer(DrawList* list, u64 handle, f32 t, v2 position, i32 f0, i32 fn, i32 palette_index, i32 layer) {
     SpriteData* asset = sprite_asset(asset_pack_data, handle);
     i32 len = fn - f0 + 1;
     i32 frame = (i32)(t * len) % len;
-    draw_sprite(list, handle, frame + f0, position, palette_index);
+    draw_sprite_layer(list, handle, frame + f0, position, palette_index, layer);
+}
+
+void draw_sprite_animated_frame_range(DrawList* list, u64 handle, f32 t, v2 position, i32 f0, i32 fn, i32 palette_index) {
+    draw_sprite_animated_frame_range_layer(list, handle, t, position, f0, fn, palette_index, 0);
+}
+
+void draw_sprite_animated_layer(DrawList* list, u64 handle, f32 t, v2 position, i32 palette_index, i32 layer) {
+    SpriteData* asset = sprite_asset(asset_pack_data, handle);
+    draw_sprite_animated_frame_range_layer(list, handle, t, position, 0, asset->frames_len - 1, palette_index, layer);
 }
 
 void draw_sprite_animated(DrawList* list, u64 handle, f32 t, v2 position, i32 palette_index) {

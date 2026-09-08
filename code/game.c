@@ -26,25 +26,27 @@ char* asset_pack_data = NULL;
 
 #endif
 
-#define DUCKS_MAX          16
-#define MARCHERS_MAX       1 + DUCKS_MAX
-#define PLATFORMS_MAX      32
-#define CARS_MAX           32
-#define BUTTONS_MAX        16
-#define GATES_MAX          16
-#define GATE_BUTTONS_MAX   16
-#define PERMAGATES_MAX     64
-#define SIGNS_MAX          8
+#include "debug_overlay.c"
 
-#define TIME_SCALE         1.25f
-#define MOVE_QUEUE_MAX     64
-#define LOGIC_DATA_SIZE    256
-#define MOVE_CHAIN_SIZE    256
-#define MSG_LEN_MAX        16
+#define DUCKS_MAX           16
+#define MARCHERS_MAX        1 + DUCKS_MAX
+#define PLATFORMS_MAX       64
+#define CARS_MAX            32
+#define BUTTONS_MAX         16
+#define GATES_MAX           16
+#define TRIGGER_BUTTONS_MAX 16
+#define PERMAGATES_MAX      64
+#define SIGNS_MAX           8
 
-#define STARTING_DUCKS     2
+#define TIME_SCALE          2.0
+#define MOVE_QUEUE_MAX      64
+#define LOGIC_DATA_SIZE     256
+#define MOVE_CHAIN_SIZE     256
+#define MSG_LEN_MAX         32
 
-f32 debug_timescale = 1.0;
+#define STARTING_DUCKS      0
+
+f32 dt_mod = 1.0;
 
 typedef enum {
     MOVE_NONE  = 0,
@@ -56,6 +58,7 @@ typedef enum {
 
 typedef enum {
     PLATFORM_FLOAT,
+    PLATFORM_FAKE_WARN,
     PLATFORM_WARN,
     PLATFORM_SINK
 } PlatformSinkState;
@@ -71,9 +74,20 @@ typedef struct {
     f32               anim_offset_t;
     MoveDirection     move_this_cycle;
     MoveDirection     pulled_move_this_cycle;
+    // honk state
+    bool              honk_this_cycle;
+    // misc state
     PlatformSinkState sink_state;
     i32               car_width;
     i32               palette_swap;
+    i32               snake_index;
+    i32               snake_frame_root;
+    i32               reappear_countdown;
+    // crumble state
+    bool              crumbler;
+    i32               max_health;
+    i32               hits_taken;
+    f32               transition_t;
 } Entity;
 
 typedef enum {
@@ -103,14 +117,20 @@ typedef enum {
     MODE_EGG_EXPLODE,
     MODE_EGG_COLLECT,
     MODE_EDITOR,
-    MODE_WORLD_VIEWER
+    MODE_WORLD_VIEWER,
+    MODE_APPEASE_TROLL,
+    MODE_GATE_TO_TEA
 } GameMode;
 
 typedef enum {
     CUT_NONE,
+    CUT_OPENING,
+    CUT_EGG_RUMBLE,
     CUT_FROG_PAUSE,
     CUT_FROG_INVITATION,
-    CUT_FROG_INVITATION_2
+    CUT_FROG_INVITATION_2,
+    CUT_RIVER_GATE,
+    CUT_TEA_PARTY
 } CutsceneMode;
 
 typedef enum {
@@ -138,7 +158,8 @@ typedef enum {
 
 typedef enum {
     TRIGGER_NONE,
-    TRIGGER_BUTTONS
+    TRIGGER_BUTTONS,
+    TRIGGER_REMOTE
 } GateTrigger;
 
 typedef struct {
@@ -150,7 +171,7 @@ typedef struct {
     GateTrigger trigger_type;
     union {
         struct {
-            u8 indices[GATE_BUTTONS_MAX];
+            u8 indices[TRIGGER_BUTTONS_MAX];
             u8 len;
         } buttons;
     } trigger;
@@ -161,20 +182,96 @@ typedef struct {
     iv2 pos;
     i64 sprite;
     i32 talk_count;
+    bool doublewide;
 } Sign;
+
+typedef enum {
+    TIME_EVENT_NONE = 0,
+    TIME_EVENT_BUTTON_GATE
+} TimeEventType;
+
+typedef struct {
+    TimeEventType type;
+    i32           cycles;
+    union {
+        struct {
+            u8 button_indices[TRIGGER_BUTTONS_MAX];
+            u8 buttons_len;
+            u8 permagate_index;
+        } button_gate;
+    };
+} TimeEvent;
+
+typedef enum {
+    MUFFIN_GAME_INACTIVE,
+    MUFFIN_GAME_ACTIVE,
+    MUFFIN_GAME_LOST,
+    MUFFIN_GAME_WON
+} MuffinGameMode;
+
+typedef enum {
+    MUFFIN_DOWN,
+    MUFFIN_WARN,
+    MUFFIN_UP,
+    MUFFIN_ASLEEP
+} MuffinState;
+
+typedef struct {
+    MuffinState state;
+    i32         state_counter; 
+    f32         transition_t;
+    i32         sleep_count;
+} Muffin;
+
+typedef struct {
+    MuffinGameMode mode;
+    i32            cycle;
+    Muffin         muffins[9];
+    i32            spawn_cooldown;
+} MuffinGame;
+
+typedef enum {
+    SNAKE_GAME_INACTIVE,
+    SNAKE_GAME_ACTIVE,
+    SNAKE_GAME_LOST,
+    SNAKE_GAME_WON
+} SnakeGameMode;
+
+typedef struct {
+    SnakeGameMode mode;
+    i32           snake_extra_length;
+    iv2           apple_pos;
+    bool          apple_active;
+    f32           apple_transition_t;
+} SnakeGame;
 
 // Must never contain unstable references, because reloads are just a memcpy.
 typedef struct {
     MoveDirection input_move;
+    bool          input_honk;
     iv2           hannah_pos_lead_prev; // kinda crazy, but needed for moving platform decisions
     bool          hannah_manual_moved_this_cycle;
     u8            logic_data[LOGIC_DATA_SIZE];
+
+    // Non marching entities
     Entity        platforms[PLATFORMS_MAX];
     i32           platforms_len;
-    i32           cycle_index;
 
     Entity        cars[CARS_MAX];
     i32           cars_len;
+
+    Entity        frogo;
+    bool          frogo_exists;
+    bool          frogo_alerted;
+    bool          frogo_alerted_just_now;
+    MoveDirection frogo_alert_direction;
+
+    // Bespoke objects
+    iv2           egg_pos;
+    bool          egg_exists;
+    i32           egg_index;
+    f32           egg_t;
+    EggState      egg_states[16];
 
     Button        buttons[BUTTONS_MAX];
     i32           buttons_len;
@@ -186,16 +283,29 @@ typedef struct {
     Sign          signs[SIGNS_MAX];
     i32           signs_len;
 
+    MuffinGame    muffin_game;
+    SnakeGame     snake_game;
+
+    // Random state
+    bool          boat_activated;
+    bool          boat_riding;
+    f32           large_gate_t;
+    bool          honking_unlocked;
+    bool          frogo_appeased;
+    bool          troll_appeased;
+
+    // Draw override
+    bool          override_egg_draw;
+    bool          override_hannah_draw;
+
+	// Time event
+	TimeEvent     queued_time_event;
+	TimeEvent     active_time_event;
+
+    // Level
     i32           level_index;
     i32           level_index_prev;
     v2            level_prev_offset_pos;
-
-    // Level egg state
-    iv2           egg_pos;
-    bool          egg_exists;
-    i32           egg_index;
-    f32           egg_t;
-    EggState      egg_states[2];
 
     union {
         Entity marchers[MARCHERS_MAX]; // ducks and hannah
@@ -208,6 +318,29 @@ typedef struct {
     i32 marchers_len;
 } LevelState;
 
+typedef enum {
+    MUSIC_OVERRIDE_NONE,
+    MUSIC_OVERRIDE_MENU_FADE,
+    MUSIC_OVERRIDE_WINDY,
+    MUSIC_OVERRIDE_WINDY_DRUMS
+} MusicOverrideState;
+
+typedef enum {
+    MSG_FROG,
+    MSG_FROGO,
+    MSG_DUCK,
+    MSG_SIGN,
+    MSG_TROLL,
+    MSG_MUFFIN,
+    MSG_SNAKE,
+    MSG_HANNAH
+} MsgType;
+
+typedef struct {
+    MsgType type;
+    String  s;
+} Msg;
+
 typedef struct {
     // High level state
     GameMode         mode;
@@ -216,10 +349,12 @@ typedef struct {
     World            world_copy;
     LevelState       state;
     LevelState       saved_state;
+    MusicOverrideState music_override_state;
 
     i32              frames_since_init;
     f64              time;
     i32              cycle_stage_counter;
+    i32              cycle_index;
     bool             new_cycle_this_frame;
     bool             half_cycle_this_frame;
 	InputButtonState input_buttons[BUTTON_COUNT];
@@ -228,23 +363,24 @@ typedef struct {
 	// Debugging
 	bool             debug_stepping;
 	i32              new_cycle_queued;
+	char             dbg_buf[256];
+	String           dbg_str;
 
     // Misc mode data
     f32              level_reset_t;
     f32              transition_t;
     CutsceneMode     cutscene_mode;
     bool             god_mode;
+    bool             first_move_made;
 
     // Dialogue
-    String           msg[MSG_LEN_MAX];
-    i32              msg_len;
+    Msg              msg_chain[MSG_LEN_MAX];
+    i32              msg_chain_len;
     i32              msg_string_cur;
     i32              msg_char_cur;
     f32              msg_char_t;
     bool             msg_speeding;
     f32              msg_char_pitch;
-    i32              msg_sound_type;
-    i64              msg_portrait;
 
     // Editor modes
     Editor           editor;
@@ -253,12 +389,14 @@ typedef struct {
     iv2              world_viewer_place_offset;
 } Game;
 
-#include "music.c"
 #include "game_common.c"
+#include "music.c"
 #include "draw_game.c"
 #include "mode_menu.c"
 #include "mode_world_viewer.c"
 #include "mode_dialogue.c"
+#include "muffin_sprout.c"
+#include "snake_game.c"
 #include "frog.c"
 #include "mode_cinematic.c"
 #include "mode_game.c"
@@ -273,24 +411,28 @@ GAME_INIT(game_init) {
 	memset(game, 0, sizeof(Game));
 	asset_pack_data = asset_memory;
 
-//#ifndef __EMSCRIPTEN__
 	// RELEASE: this is for live editing only
 	World* world = world_asset(asset_pack_data, WORLD_MAIN);
 	memcpy(&game->world_copy, world, sizeof(World));
 	game->world = &game->world_copy;
-//#endif
+
+    // RELEASE: get rid of.
+    game->dbg_str = init_dbg_overlay(game->dbg_buf);
 
     for(i32 i = 0; i < LEVELS_MAX; i++) {
         Level* level = &game->world->levels[i];
         for(i32 j = 0; j < 64; j++) {
+
         }
     }
 
 	game->new_cycle_this_frame = true;
 	game->state.level_index = 3;
-	game->state.level_index = 14;
-	game->mode = MODE_GAME;
-	game->mute = true;
+	game->mode = MODE_MENU;
+	// testing overrides
+	//game->state.level_index = 35;
+	//game->mode = MODE_GAME;
+
 
 	// setup entities. later, there will be structs for each type that reference
 	// entity indices. A subservient tool.
@@ -298,13 +440,14 @@ GAME_INIT(game_init) {
 	state->marchers_len = STARTING_DUCKS + 1;
 	for(i32 i = 0; i < state->marchers_len; i++) {
     	Entity* entity = &state->marchers[i];
-    	entity->pos_cur = iv2_new(2 - i, 0);
-    	entity->pos_prev = iv2_new(2 - i - 1, 0);
+    	entity->pos_cur = iv2_new(4 - i, 4);
+    	entity->pos_prev = iv2_new(4 - i - 1, 4);
     	entity->pos_lead = entity->pos_prev;
     	entity->pos_visible = v2_from_iv2(entity->pos_cur);
     	entity->pos_prev_visible = v2_from_iv2(entity->pos_prev);
+    	entity->pos_t = 1.0;
     	if(i == 0) {
-        	entity->sprite_handle = SPRITE_HANNAH_RIGHT;
+        	entity->sprite_handle = SPRITE_HANNAH_LEFT;
     	} else {
         	entity->sprite_handle = SPRITE_DUCK_RIGHT;
     	}
@@ -320,7 +463,7 @@ GAME_UPDATE(game_update) {
 	Game* game = (Game*)game_memory;
 	Stack frame_stack = stack_from_memory(game_memory + sizeof(Game), MEGABYTE / 2, string_const("GameFrame"));
 
-	dt *= debug_timescale;
+	dt *= dt_mod;
 
 	input_clear_buttons(game->input_buttons, BUTTON_COUNT);
 	input_release_buttons_if_window_defocused(events, events_len, game->input_buttons, BUTTON_COUNT);
@@ -348,7 +491,12 @@ GAME_UPDATE(game_update) {
 	game->debug_stepping = false;
 	//game->state.level_index = 2;
 
-    pre_update_level_logic(game, &frame_stack);
+    if(game->mode == MODE_APPEASE_TROLL) {
+        game->state.troll_appeased = true;
+        game->mode = MODE_GAME;
+    }
+
+    pre_update_level_logic(game, &frame_stack, dt);
 	switch(game->mode) {
     	case MODE_PREMENU: {
         	mode_premenu_to_menu_update(game, draw_list, audio, dt);
@@ -380,6 +528,9 @@ GAME_UPDATE(game_update) {
     	case MODE_EGG_COLLECT: {
         	mode_egg_collect_update(game, draw_list, audio, dt);
     	} break;
+    	case MODE_GATE_TO_TEA: {
+        	mode_gate_to_tea_update(game, draw_list, audio, dt);
+    	} break;
     	case MODE_EDITOR: {
         	mode_editor_update(game, draw_list, audio, dt);
     	} break;
@@ -394,4 +545,7 @@ GAME_UPDATE(game_update) {
         update_music_state(game, audio, dt);
     }
 	game->frames_since_init++;
+
+	// RELEASE: get rid of
+	dbg_draw(&game->dbg_str, draw_list);
 }

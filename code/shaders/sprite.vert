@@ -1,5 +1,5 @@
 #version 430 core
-precision highp float;
+precision mediump float;
 layout (location = 0) in vec2 vert; // -1.0 -> 1.0
 
 struct Sprite {
@@ -10,7 +10,7 @@ struct Sprite {
 
 layout(std140) uniform sprite_ubo
 {
-	Sprite sprites[128];
+	Sprite sprites[64];
 };
 
 out vec2 uv;

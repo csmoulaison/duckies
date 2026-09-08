@@ -1,6 +1,6 @@
 #define MENU_FADE_IN_TIME 0.5
 
-void draw_main_menu(Game* game, DrawList* draw_list, f32 dt) {
+void draw_main_menu(Game* game, DrawList* draw_list, f32 dt, f32 transition_out_t) {
     // Tiles
     for(i32 y = 0; y < 10; y++) {
         for(i32 x = 0; x < 10; x++) {
@@ -18,9 +18,12 @@ void draw_main_menu(Game* game, DrawList* draw_list, f32 dt) {
         string_const("MARCH"),
         string_const("DUCK")
     };
+    offx += transition_out_t * transition_out_t * transition_out_t * 2500.0 - transition_out_t * 60.0;
     for(i32 i = 0; i < 2; i++) {
         for(i32 j = 0; j < s[i].len; j++) {
-            f32 ysin = sin((game->time * M_PI) + j) * 1.0;
+            f32 sint = (game->time * M_PI) + j;
+            f32 ysin = sin(sint) * 1.0;
+            ysin += sin(sint * transition_out_t) * transition_out_t * 20.0;
             for(i32 k = 1; k >= 0; k--) {
                 draw_sprite(draw_list, SPRITE_FONT_BIG, (i32)s[i].text[j] - 32, v2_new(k + offx + (j * font_sz), -k + offy + i * font_sz + ysin), k * 2);
             }
@@ -54,9 +57,9 @@ void mode_menu_update(Game* game, DrawList* draw_list, Audio* audio, f32 dt) {
     override_pallete_from_fade_one_way_t(draw_list, game->transition_t);
 
     // Control
-	if(input_button_pressed(game->input_buttons[BUTTON_DOWN])) {
+	if(input_button_pressed(game->input_buttons[BUTTON_EDITOR_PLACE])) {
         game->transition_t = 0.0;
         game->mode = MODE_MENU_TO_GAME;
 	}
-    draw_main_menu(game, draw_list, dt);
+    draw_main_menu(game, draw_list, dt, 0.0);
 }

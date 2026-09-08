@@ -1,20 +1,39 @@
 // RELEASE: set these to longer
 #define PREMENU_TO_MENU_TIME 5.0
-//#define PREMENU_TO_MENU_TIME 0.5
 
-#define MENU_TO_GAME_TIME 4.0
-//#define MENU_TO_GAME_TIME 0.5
+#define MENU_TO_GAME_TIME 6.0
 
-#define LEVEL_SWITCH_TIME 1.0
+#define LEVEL_SWITCH_TIME 0.2
 
 void mode_level_switch_update(Game* game, DrawList* draw_list, Audio* audio, f32 dt) {
     LevelState* state = &game->state;
+    update_input_move(game);
+
     game->transition_t += dt / LEVEL_SWITCH_TIME;
-    v2 offset_cur = v2_lerp(v2_scale(state->level_prev_offset_pos, -1.0), v2_zero(), game->transition_t);
-    v2 offset_prev = v2_lerp(v2_zero(), state->level_prev_offset_pos, game->transition_t);
+    f32 t = game->transition_t;
+    if(t > 1.0) {
+        t = 1.0;
+    } else if(t < 0.0) {
+        t = 0.0;
+    }
+    t = smoothstep(t);
+    v2 offset_cur = v2_lerp(v2_scale(state->level_prev_offset_pos, -1.0), v2_zero(), t);
+    v2 offset_prev = v2_lerp(v2_zero(), state->level_prev_offset_pos, t);
+
     draw_level_tiles(game, prev_game_level(game), draw_list, offset_prev);
     update_visual_state(game, draw_list, offset_cur, dt);
     if(game->transition_t > 1.0) {
+        Entity* hannah = &state->marchers[0];
+        iv2 hannah_delta = iv2_sub(hannah->pos_prev, hannah->pos_cur);
+        for(i32 i = 0; i < ducks_len(state); i++) {
+            Entity* duck = &state->ducks[i];
+            duck->pos_cur = iv2_add(hannah->pos_cur, hannah_delta);
+            duck->pos_prev = iv2_add(duck->pos_cur, hannah_delta);
+            duck->pos_lead = duck->pos_prev;
+            duck->pos_visible = v2_from_iv2(duck->pos_cur);
+            duck->pos_prev_visible = v2_from_iv2(duck->pos_prev);
+        }
+        
         game->mode = MODE_GAME;
         game->transition_t = 0.0;
     	game->saved_state = game->state;
@@ -50,16 +69,37 @@ void mode_premenu_to_menu_update(Game* game, DrawList* draw_list, Audio* audio, 
     }
 }
 
+void mode_gate_to_tea_update(Game* game, DrawList* draw_list, Audio* audio, f32 dt) {
+    game->music_override_state = MUSIC_OVERRIDE_MENU_FADE;
+    game->transition_t += dt / 6.0;
+    override_pallete_from_fade_t_parameters(draw_list, game->transition_t, 0.30, 0.33, 0.96, 0.99);
+    if(game->transition_t > 0.5) {
+        game->state.level_index = 49;
+        draw_tea_party(game, draw_list, audio, dt);
+    } else {
+        update_visual_state(game, draw_list, v2_zero(), dt);
+    }
+    if(game->transition_t > 1.0) {
+        game->mode = MODE_CUTSCENE;
+        game->cutscene_mode = CUT_TEA_PARTY;
+        game->transition_t = 0.0;
+    }
+}
+
 void mode_menu_to_game_update(Game* game, DrawList* draw_list, Audio* audio, f32 dt) {
+    game->music_override_state = MUSIC_OVERRIDE_MENU_FADE;
     game->transition_t += dt / MENU_TO_GAME_TIME;
-    override_pallete_from_fade_t(draw_list, game->transition_t);
+    override_pallete_from_fade_t_parameters(draw_list, game->transition_t, 0.30, 0.33, 0.96, 0.99);
 
     if(game->transition_t > 0.6) {
-        update_visual_state(game, draw_list, v2_zero(), dt);
+        draw_opening(game, draw_list, audio, 0.0);
+        
         if(game->transition_t > 1.0) {
-            game->mode = MODE_GAME;
+            game->mode = MODE_CUTSCENE;
+            game->cutscene_mode = CUT_OPENING;
+            game->transition_t = 0.0;
         }
     } else {
-        draw_main_menu(game, draw_list, dt);
+        draw_main_menu(game, draw_list, dt, game->transition_t);
     }
 }

@@ -1,5 +1,5 @@
 #define EGG_COLLECT_TIME 2.0
-#define EGG_EXPLODE_TIME 1.5
+#define EGG_EXPLODE_TIME 0.8
 
 void mode_egg_explode_update(Game* game, DrawList* draw_list, Audio* audio, f32 dt) {
     LevelState* state = &game->state;
@@ -9,22 +9,59 @@ void mode_egg_explode_update(Game* game, DrawList* draw_list, Audio* audio, f32 
         state->egg_states[state->egg_index] = EGG_BROKEN;
         switch(state->egg_index) {
             case 0: {
-                String seq[4] = {
-                    string_const("HI, I'M A DUCK!"),
-                    string_const("YOU CAN CALL ME FUCK CHEZ."),
-                    string_const("MARCH ME TO DEATH, MY LOVE."),
-                    string_const("IT IS TIME!")
+                Msg seq[9] = {
+                    // NOW: for the love of god
+                    new_msg(MSG_DUCK, string_const("HI, I'M A DUCK!")),
+                    new_msg(MSG_HANNAH, string_const("...")),
+                    new_msg(MSG_DUCK, string_const("...NOT MUCH OF A TALKER, ARE YA?")),
+                    new_msg(MSG_HANNAH, string_const("...")),
+                    new_msg(MSG_DUCK, string_const("I COULD REALLY GO FOR A BIT OF TEA.")),
+                    new_msg(MSG_DUCK, string_const("I'VE GOT AN IDEA!")),
+                    new_msg(MSG_DUCK, string_const("WE'LL HAVE A TEA PARTY THE LIKES OF WHICH THIS WORLD HAS NEVER SEEN!")),
+                    new_msg(MSG_DUCK, string_const("BUT FIRST WE'LL NEED TO GATHER SOME MORE FRIENDS!")),
+                    new_msg(MSG_DUCK, string_const("NO TIME TO WASTE! OFF WE GO!"))
                 };
-                start_msg(game, seq, 4, MODE_EGG_COLLECT, SPRITE_DUCK_PORTRAIT, MSG_SOUND_DUCK);
+                start_msg(game, seq, 9, MODE_EGG_COLLECT);
                 game->transition_t = 0.0;
             } break;
 
             case 1: {
-                String seq[2] = {
-                    string_const("WHAT UP HOMIE."),
-                    string_const("ONWARD."),
+                Msg seq[4] = {
+                    new_msg(MSG_DUCK, string_const("HELLOO.")),
+                    new_msg(MSG_DUCK, string_const("THEY CALL ME DUCK.")),
+                    new_msg(MSG_HANNAH, string_const("...")),
+                    new_msg(MSG_HANNAH, string_const("ONWARD TO TEA!")),
                 };
-                start_msg(game, seq, 2, MODE_EGG_COLLECT, SPRITE_DUCK_PORTRAIT, MSG_SOUND_DUCK);
+                start_msg(game, seq, 4, MODE_EGG_COLLECT);
+                game->transition_t = 0.0;
+            } break;
+
+            case 2: {
+                Msg seq[2] = {
+                    new_msg(MSG_DUCK, string_const("HEY! I WAS SLEEPING IN THERE!")),
+                    new_msg(MSG_DUCK, string_const("WELL, NO MATTER. LET'S GO!"))
+                };
+                start_msg(game, seq, 2, MODE_EGG_COLLECT);
+                game->transition_t = 0.0;
+            } break;
+
+            case 3: {
+                Msg seq[3] = {
+                    new_msg(MSG_DUCK, string_const("I WAS A GOD ONCE.")),
+                    new_msg(MSG_DUCK, string_const("AND NOW AGAIN A DUCK.")),
+                    new_msg(MSG_DUCK, string_const("TIME IS A FLAT CIRCLE."))
+                };
+                start_msg(game, seq, 3, MODE_EGG_COLLECT);
+                game->transition_t = 0.0;
+            } break;
+
+            case 4: {
+                Msg seq[3] = {
+                    new_msg(MSG_DUCK, string_const("I AM THE HIGHLAND DUCK.")),
+                    new_msg(MSG_DUCK, string_const("TREMBLE BEFORE MY GLORY.")),
+                    new_msg(MSG_HANNAH, string_const("..."))
+                };
+                start_msg(game, seq, 3, MODE_EGG_COLLECT);
                 game->transition_t = 0.0;
             } break;
 
@@ -51,7 +88,8 @@ void mode_egg_collect_update(Game* game, DrawList* draw_list, Audio* audio, f32 
     v2 draw_pos = v2_lerp(egg_draw_pos, v2_scale(v2_from_iv2(last_duck->pos_prev), 8.0), game->transition_t);
     f32 sin_t = sin(game->transition_t * M_PI);
     draw_pos.y += sin_t * 12.0;
-    draw_sprite(draw_list, duck_spr, 0, draw_pos, 0);
+    i32 pl = palette_from_marcher_index(state->marchers_len);
+    draw_sprite(draw_list, duck_spr, 0, draw_pos, pl);
 
     AudioWaveChannel* wave = &audio->wave_channels[3];
     if(game->transition_t < 0.66) {
@@ -69,6 +107,7 @@ void mode_egg_collect_update(Game* game, DrawList* draw_list, Audio* audio, f32 
         state->marchers_len++;
         game->mode = MODE_GAME;
         game->transition_t = 0.0;
+        game->music_override_state = MUSIC_OVERRIDE_NONE;
     }
 
 }

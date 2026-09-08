@@ -19,13 +19,13 @@
 #include "world.c"
 
 #define PALETTE_COLOR_COUNT 16
-#define PALETTE_COUNT       8
+#define PALETTE_COUNT       16
 #define PALETTE_DATA_SIZE   (PALETTE_COLOR_COUNT * PALETTE_COUNT)
 u32 palette_colors[PALETTE_COLOR_COUNT] = {
     0x00000000, //  0: Clear
-    0xff331133, //  1: Purple (eyes, black)
-    0xff88aaff, //  2: Orange (hair, bill)
-    0xffc4d4f4, //  3: Peach  (skin)
+    0xff551155, //  1: Purple (eyes, black)
+    0xff33bbff, //  2: Orange (hair, bill)
+    0xffddeeff, //  3: Peach  (skin)
     0xffee8866, //  4: Blue   (sweater)
     0xff88ffff, //  5: Lellow (duck)
     0xff66ff88, //  6: Green  (grass)
@@ -33,9 +33,9 @@ u32 palette_colors[PALETTE_COLOR_COUNT] = {
     0xff000000, //  8: Black
     0xffFFFFFF, //  9: White
     0xff1A60A5, // 10: Brown 
-    0xffF300FF, // 11: undef
-    0xffF300FF, // 12: undef
-    0xffF300FF, // 13: undef
+    0xff6289a0, // 11: Grey
+    0xff3c8ed6, // 12: Offbrown
+    0xff2828ee, // 13: Red
     0xffF300FF, // 14: undef
     0xffF300FF, // 15: undef
 };
@@ -45,9 +45,18 @@ u32 palette_indices[PALETTE_DATA_SIZE] = {
     0,  8,  8,  8,  8,  8,  8,  8,  8,  8, 8,  8,  8,  8,  8,  8,  // black
     0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 0,  0,  0,  0,  0,  0, // all clear
     0,  1,  2,  3,  4,  5,  7,  6,  8,  9, 10, 11, 12, 13, 14, 15, // tile checkerboard
-    0,  1,  2,  3,  6,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15, // car remap 1
-    0,  1,  2,  3,  2,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15, // car remap 2
+    0,  1,  2,  3,  6,  5,  12,  7,  8,  9, 10, 11, 12, 13, 14, 15, // mountain, car remap 1
+    0,  1,  2,  3,  2,  5,  11,  7,  8,  9, 10, 11, 12, 13, 14, 15, // mountain checker, car remap 2
     0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15, // unset
+
+    0,  1,  2,  3,  4,  9,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15, // duck2
+    0,  1,  2,  3,  4,  10,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15, // duck3
+    0,  1,  5,  3,  4,  2,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15, // duck4
+    0,  1,  2,  3,  4,  11,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15, // duck5
+    0,  1,  5,  3,  4,  13,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15, // duck6
+    0,  1,  5,  3,  4,  4,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15, // duck7
+    0,  9,  9,  9,  9,  9,  9,  9,  8,  9, 10, 11, 12, 13, 14, 15, // duck_honk
+    0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15, // frogo mad
 };
 
 i32 main(i32 argc, char** argv) {
@@ -115,7 +124,15 @@ i32 main(i32 argc, char** argv) {
         system("source extern/emsdk/emsdk_env.sh && \
             emcc code/emscripten.c -o bin/main.html -sUSE_SDL=2 -sMIN_WEBGL_VERSION=2 -sMAX_WEBGL_VERSION=2 -sFULL_ES3=1 \
             --embed-file build/asset --embed-file code/shaders@/shaders --embed-file assets/world/@/../assets/world \
-            -Wall -Werror -Wno-unused -Wno-format -g -gsource-map -fsanitize=undefined -sASSERTIONS=2 -sSAFE_HEAP=1 -sALLOW_TABLE_GROWTH -sSTACK_SIZE=2000000 --emrun");
+            -Wall -Werror -Wno-unused -Wno-format -g -gsource-map -fsanitize=undefined -sASSERTIONS=2 -sSAFE_HEAP=1 -sALLOW_TABLE_GROWTH -sSTACK_SIZE=128000 --emrun");
+        if(argc > 2 && strcmp(argv[2], "release") == 0) {
+            // Release version
+            system("source extern/emsdk/emsdk_env.sh && \
+                emcc code/emscripten.c -o bin/index.js -sUSE_SDL=2 -sMIN_WEBGL_VERSION=2 -sMAX_WEBGL_VERSION=2 -sFULL_ES3=1 \
+                --embed-file build/asset --embed-file code/shaders@/shaders --embed-file assets/world/@/../assets/world \
+                -Wall -Werror -Wno-unused -Wno-format -g -gsource-map -fsanitize=undefined -sASSERTIONS=2 -sSAFE_HEAP=1 -sALLOW_TABLE_GROWTH -sSTACK_SIZE=128000");
+            system("cp code/html/index.html bin/index.html");
+        }
     } else {
         u64 flags = BUILD_FLAG_DEBUG | BUILD_FLAG_WARNINGS | BUILD_FLAG_LINK_GL3W | BUILD_FLAG_TARGET_X11 | BUILD_FLAG_LINK_ALSA;
         bool dynamic_only = (argc > 1 && strcmp(argv[1], "dynamic") == 0);

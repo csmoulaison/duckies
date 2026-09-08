@@ -6,7 +6,7 @@
 #define AUDIO_NOISE_COUNT 1
 #define AUDIO_NOISE_PHASE_COOLDOWN 8
 
-u8 triangle_lut[32] = { 
+i32 triangle_lut[32] = { 
     0,
     0 + 16,
     32,
@@ -64,7 +64,7 @@ typedef struct {
 
 void audio_init(Audio* audio) {
     memset(audio, 0, sizeof(Audio));
-    audio->attenuation = 0.6f;
+    audio->attenuation = 0.5f;
     audio->shelf = 0.9f;
 }
 
@@ -88,6 +88,7 @@ void audio_callback(void* userdata, u8* buffer, i32 len) {
         if(noise->amp < 0.0f) {
             noise->amp = 0.0f;
         }
+        //noise->amp = ((i32)(noise->amp * 256.0)) / 256.0;
     }
     
     for(i32 i = 0; i < len / 4; i++) {
@@ -98,13 +99,21 @@ void audio_callback(void* userdata, u8* buffer, i32 len) {
                 wave->freq_actual = lerp(wave->freq_actual, wave->freq, 0.002f);
             }
             wave->amp_actual  = lerp(wave->amp_actual,  wave->amp,  0.002f);
-            wave->phase += 2.0f * M_PI * wave->freq_actual / AUDIO_SAMPLE_RATE;
+            wave->phase += (2.0f * M_PI * wave->freq_actual) / AUDIO_SAMPLE_RATE;
 
             // sin
             //stream[i] += wave->amp_actual * sinf(wave->phase);
 
-            // triangle
-            stream[i] += wave->amp_actual * ((f32)(triangle_lut[(i64)(wave->phase * 4) % 32]) / 256.0f);
+            if(j == 2) {
+                stream[i] += (sin(wave->phase) >= 0.0) ? wave->amp_actual : -wave->amp_actual;
+            } else {
+                // triangle
+                i32 lut_i = (i32)fmod(wave->phase * M_PI, 32.0);                       
+                i32 lut_sample = triangle_lut[(i32)fmod(wave->phase * 2.5, 32.0)] - 128;
+                f32 triangle_sample = (f32)lut_sample / 128.0;
+                stream[i] += wave->amp_actual * triangle_sample;
+            }
+
         }
         for(i32 j = 0; j < AUDIO_NOISE_COUNT; j++) {
             noise = &audio->noise_channels[j];

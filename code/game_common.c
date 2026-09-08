@@ -1,3 +1,11 @@
+i32 palette_from_marcher_index(i32 i) {
+    i32 pl = 0;
+    if(i > 1) {
+        pl = 8 + i - 2;
+    }
+    return pl;
+}
+
 i32 ducks_len(LevelState* state) {
     return state->marchers_len - 1;
 }
@@ -8,6 +16,44 @@ Level* prev_game_level(Game* game) {
 
 Level* active_game_level(Game* game) {
     return &game->world->levels[game->state.level_index];
+}
+
+bool pos_adjacent(iv2 a, iv2 b) {
+    bool adjacent = false;
+    if(iv2_eq(b, iv2_new(a.x - 1, a.y))) adjacent = true;
+    if(iv2_eq(b, iv2_new(a.x + 1, a.y))) adjacent = true;
+    if(iv2_eq(b, iv2_new(a.x, a.y - 1))) adjacent = true;
+    if(iv2_eq(b, iv2_new(a.x, a.y + 1))) adjacent = true;
+    return adjacent;
+}
+
+bool any_honk_at_pos(LevelState* state, iv2 pos) {
+    for(i32 i = 0; i < ducks_len(state); i++) {
+        Entity* duck = &state->ducks[i];
+        if(duck->honk_this_cycle && iv2_eq(duck->pos_cur, pos)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool any_honk_adjacent(LevelState* state, iv2 pos) {
+    for(i32 i = 0; i < ducks_len(state); i++) {
+        Entity* duck = &state->ducks[i];
+        if(duck->honk_this_cycle && pos_adjacent(duck->pos_cur, pos)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool any_marcher_at_pos(LevelState* state, iv2 pos) {
+    for(i32 i = 0; i < state->marchers_len; i++) {
+        if(iv2_eq(pos, state->marchers[i].pos_cur)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 iv2 delta_from_direction(MoveDirection dir) {
@@ -43,6 +89,17 @@ MoveDirection direction_from_target(Entity* entity, iv2 target) {
 
 bool pos_in_bounds(iv2 pos) {
     return pos.x > -1 && pos.x < 8 && pos.y > -1 && pos.y < 8;
+}
+
+iv2 relative_pos_after_direction(iv2 pos, MoveDirection dir) {
+    switch(dir) {
+        case MOVE_UP:    pos.y++; break;
+        case MOVE_LEFT:  pos.x--; break;
+        case MOVE_DOWN:  pos.y--; break;
+        case MOVE_RIGHT: pos.x++; break;
+        default: break;
+    }
+    return pos;
 }
 
 iv2 pos_after_direction(Entity* entity, MoveDirection dir) {
@@ -235,20 +292,44 @@ Tile tile_from_pos(Game* game, Level* level, iv2 pos) {
 bool pos_safe(Game* game, iv2 pos) {
     Level* level = active_game_level(game);
     Tile tile = tile_from_pos(game, level, pos);
-    Entity* platform = try_platform_at_pos(game, pos);
-    if(platform != NULL) {
-        return (platform->sink_state != PLATFORM_SINK);
-    }
     if(tile.type == TILE_TYPE_WATER) {
+        Entity* platform = try_platform_at_pos(game, pos);
+        if(platform != NULL) {
+            if(platform->sink_state == PLATFORM_SINK) 
+                return false;
+            if(platform->crumbler && platform->hits_taken > platform->max_health) 
+                return false;
+            return true;
+        } 
         return false;
     }
     return true;
 }
 
+iv2 muffin_pos_from_index(i32 i) {
+    iv2 pos = iv2_new(1 + (i % 3) * 2, 1 + (i / 3) * 2);
+    return pos;
+}
+
 bool pos_passable(Game* game, iv2 pos) {
     Level* level = active_game_level(game);
+    LevelState* state = &game->state;
     bool passable = !(tile_from_pos(game, level, pos).flags & TILE_FLAG_CLIFF);
-    printf("passable %d\n", passable);
+    for(i32 i = 0; i < state->gates_len; i++) {
+        Gate* gate = &state->gates[i];
+        if(iv2_eq(pos, gate->pos) && gate->state != GATE_OPEN) {
+            passable = false;
+            break;
+        }
+    }
+    if(state->level_index == 67) {
+        for(i32 i = 0; i < 9; i++) {
+            if(iv2_eq(pos, muffin_pos_from_index(i))) {
+                passable = false;
+                break;
+            }
+        }
+    }
     return passable;
 }
 
@@ -262,6 +343,15 @@ void reset_level(Game* game) {
     game->level_reset_t = 0.0f;
 }
 
+void override_pallete_from_fade_t_parameters(DrawList* list, f32 t, f32 t1, f32 t2, f32 t3, f32 t4) {
+    list->palette_override_index = 0;
+    if(t > t1) list->palette_override_index = 1;
+    if(t > t2) list->palette_override_index = 2;
+    if(t > t3) list->palette_override_index = 1;
+    if(t > t4) list->palette_override_index = 0;
+
+}
+
 void override_pallete_from_fade_one_way_t(DrawList* list, f32 t) {
     list->palette_override_index = 2;
     if(t > 0.50) list->palette_override_index = 1;
@@ -269,9 +359,51 @@ void override_pallete_from_fade_one_way_t(DrawList* list, f32 t) {
 }
 
 void override_pallete_from_fade_t(DrawList* list, f32 t) {
-    list->palette_override_index = 0;
-    if(t > 0.40) list->palette_override_index = 1;
-    if(t > 0.44) list->palette_override_index = 2;
-    if(t > 0.76) list->palette_override_index = 1;
-    if(t > 0.80) list->palette_override_index = 0;
+    override_pallete_from_fade_t_parameters(list, t, 0.40, 0.44, 0.76, 0.80);
 }
+
+void update_input_move(Game* game) {
+    LevelState* state = &game->state;
+
+    Entity* hannah = &state->hannah;
+    if(state->boat_riding) {
+        state->input_move = MOVE_LEFT;
+        hannah->sprite_handle = SPRITE_HANNAH_LEFT;
+        return;
+    }
+
+	if(input_button_pressed(game->input_buttons[BUTTON_UP])) {
+    	state->input_move = MOVE_UP;
+    	hannah->sprite_handle = SPRITE_HANNAH_UP;
+    	game->first_move_made = true;
+	}
+	else if(input_button_pressed(game->input_buttons[BUTTON_LEFT])) {
+    	state->input_move = MOVE_LEFT;
+    	hannah->sprite_handle = SPRITE_HANNAH_LEFT;
+    	game->first_move_made = true;
+	}
+	else if(input_button_pressed(game->input_buttons[BUTTON_DOWN])) {
+    	state->input_move = MOVE_DOWN;
+    	hannah->sprite_handle = SPRITE_HANNAH_DOWN;
+    	game->first_move_made = true;
+	}
+	else if(input_button_pressed(game->input_buttons[BUTTON_RIGHT])) {
+    	state->input_move = MOVE_RIGHT;
+    	hannah->sprite_handle = SPRITE_HANNAH_RIGHT;
+    	game->first_move_made = true;
+	}
+
+	if(state->honking_unlocked && input_button_pressed(game->input_buttons[BUTTON_EDITOR_PLACE])) {
+    	bool can_honk = true;
+    	for(i32 i = 0; i < state->marchers_len - 1; i++) {
+        	if(state->marchers[i].honk_this_cycle) {
+            	can_honk = false;
+            	break;
+        	}
+    	}
+    	if(can_honk) {
+            state->input_honk = true;
+    	}
+	}
+}
+

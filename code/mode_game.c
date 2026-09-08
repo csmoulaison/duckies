@@ -9,7 +9,7 @@ void update_marcher_with_platforms(LevelState* state, Entity* marcher, Entity* m
         for(i32 j = i + 1; j < state->platforms_len; j++) {
             Entity* b = &state->platforms[j];
             if(iv2_eq(a->pos_prev, b->pos_prev)) {
-                printf("platforms %d an %d share position of %d, %d\n", i, j, a->pos_prev);
+                //printf("platforms %d an %d share position of %d, %d\n", i, j, a->pos_prev);
                 //panic();
             }
         }
@@ -38,7 +38,6 @@ void update_marcher_with_platforms(LevelState* state, Entity* marcher, Entity* m
             }
         }
 
-
         if(should_move_marcher) {
             if(is_hannah) {
                 iv2 original_delta = iv2_sub(state->hannah_pos_lead_prev, marcher->pos_prev);
@@ -66,35 +65,42 @@ void update_marcher_with_platforms(LevelState* state, Entity* marcher, Entity* m
     }
 }
 
+void frogo_move(Game* game) {
+    LevelState* state = &game->state;
+    Entity* frogo = &state->frogo;
+    if(state->frogo_alerted_just_now) {
+        state->frogo_alerted_just_now = false;
+        return;
+    }
+    if(state->frogo_exists && state->frogo_alerted) {
+        if(pos_passable(game, pos_after_direction(frogo, state->frogo_alert_direction))) {
+            entity_move(frogo, state->frogo_alert_direction);
+        } else {
+            state->frogo_alert_direction = MOVE_NONE;
+        }
+    }
+}
+
 void mode_game_update(Game* game, DrawList* draw_list, Audio* audio, f32 dt) {
     LevelState* state = &game->state;
     Level* level = active_game_level(game);
+    Entity* hannah = &state->marchers[0];
 
     i32 switch_to_level = -1;
     iv2 level_switch_offset = iv2_new(0, 0);
+    // NOW: Level reset is bringing back first move of the level if it's done at
+    // the first opportunity on level load. 
+    update_input_move(game);
 
-    // hannah move
-    Entity* hannah = &state->hannah;
-	if(input_button_pressed(game->input_buttons[BUTTON_UP])) {
-    	state->input_move = MOVE_UP;
-    	hannah->sprite_handle = SPRITE_HANNAH_UP;
-	}
-	else if(input_button_pressed(game->input_buttons[BUTTON_LEFT])) {
-    	state->input_move = MOVE_LEFT;
-    	hannah->sprite_handle = SPRITE_HANNAH_LEFT;
-	}
-	else if(input_button_pressed(game->input_buttons[BUTTON_DOWN])) {
-    	state->input_move = MOVE_DOWN;
-    	hannah->sprite_handle = SPRITE_HANNAH_DOWN;
-	}
-	else if(input_button_pressed(game->input_buttons[BUTTON_RIGHT])) {
-    	state->input_move = MOVE_RIGHT;
-    	hannah->sprite_handle = SPRITE_HANNAH_RIGHT;
-	}
-
-	// used to calc the effect of the last move
+    // Half cycle logic
 	bool level_reset = false;
     if(game->half_cycle_this_frame) {
+        if(state->level_index == 35 && state->marchers[0].pos_cur.y > 3) {
+            game->mode = MODE_GATE_TO_TEA;
+            game->transition_t = 0.0;
+        }
+        
+        // Marchers
     	// TODO: if duck (not hannah) is in impassable tile (gate opened on them
     	// for example), level rest.
         for(i32 i = 0; i < state->marchers_len; i++) { 
@@ -105,7 +111,8 @@ void mode_game_update(Game* game, DrawList* draw_list, Audio* audio, f32 dt) {
             if(entity->pos_cur.x < 0 || entity->pos_cur.x > 7 || entity->pos_cur.y < 0 || entity->pos_cur.y > 7) {
                 continue;
             }
-            
+
+            // Check reset conditions
             for(i32 j = i + 1; j < state->marchers_len; j++) {
                 Entity* other = &state->marchers[j];
                 if(iv2_eq(other->pos_cur, entity->pos_cur)) {
@@ -135,6 +142,17 @@ void mode_game_update(Game* game, DrawList* draw_list, Audio* audio, f32 dt) {
             }
         }
 
+        frogo_move(game);
+        if(state->frogo_exists) {
+            for(i32 i = 0; i < state->marchers_len; i++) {
+                if(iv2_eq(state->marchers[i].pos_cur, state->frogo.pos_cur)) {
+                    level_reset = true;
+                    break;
+                }
+            }   
+        }
+
+        // Level switching
         if(hannah->pos_cur.y > 7 && level->exit_up != 0) {
             switch_to_level = level->exit_up;
             level_switch_offset = iv2_new(0, -1);
@@ -152,52 +170,105 @@ void mode_game_update(Game* game, DrawList* draw_list, Audio* audio, f32 dt) {
             level_switch_offset = iv2_new(-1, 0);
         }
 
-        for(i32 i = 0; i < state->buttons_len; i++) {
-            Button* button = &state->buttons[i];
-            ButtonState state_prev = button->state;
-            button->state = BUTTON_OFF;
-            for(i32 j = 0; j < state->marchers_len; j++) {
-                Entity* marcher = &state->marchers[j];
-                if(iv2_eq(marcher->pos_cur, button->pos)) {
-                    button->state = BUTTON_ON;
+        // Check queued time event
+        TimeEvent* queued_event = &state->queued_time_event;
+        switch(queued_event->type) {
+            case TIME_EVENT_BUTTON_GATE: {
+                bool triggered = true;
+                for(i32 i = 0; i < queued_event->button_gate.buttons_len; i++) {
+                    Button* button = &state->buttons[queued_event->button_gate.button_indices[i]];
+                    if(button->state == BUTTON_OFF) {
+                        triggered = false;
+                        break;
+                    }
                 }
-            }
-            if(button->state != state_prev) {
-                button->transition_t = 0.0;
+                if(triggered) {
+                    state->active_time_event = *queued_event;
+                }
+            } break;
+            default: break;
+        }
+
+        // Update active event
+        TimeEvent* active_event = &state->active_time_event;
+        if(active_event->type != TIME_EVENT_NONE) {
+            if(active_event->cycles < 1) {
+                switch(active_event->type) {
+                    case TIME_EVENT_BUTTON_GATE: {
+                        state->permagates_open[active_event->button_gate.permagate_index] = false;
+                    } break;
+                    default: panic();
+                }
+                active_event->type = TIME_EVENT_NONE;
+            } else {
+                active_event->cycles--;
             }
         }
 
+        // Gates
         for(i32 i = 0; i < state->gates_len; i++) {
             Gate* gate = &state->gates[i];
-
             GateState state_prev = gate->state;
-            gate->state = GATE_OPEN;
-            for(i32 j = 0; j < gate->trigger.buttons.len; j++) {
-                if(gate->permagate_index != -1
-                && state->permagates_open[gate->permagate_index] == true) {
+
+            switch(gate->trigger_type) {
+                case TRIGGER_BUTTONS: {
                     gate->state = GATE_OPEN;
-                    break;
-                }
-                Button* button = &state->buttons[gate->trigger.buttons.indices[j]];
-                if(button->state == BUTTON_OFF) {
-                    gate->state = GATE_CLOSED;
-                    break;
-                }
+                    for(i32 j = 0; j < gate->trigger.buttons.len; j++) {
+                        if(gate->permagate_index != -1 && state->permagates_open[gate->permagate_index] == true) {
+                            gate->state = GATE_OPEN;
+                            break;
+                        }
+                        Button* button = &state->buttons[gate->trigger.buttons.indices[j]];
+                        if(button->state == BUTTON_OFF) {
+                            gate->state = GATE_CLOSED;
+                            break;
+                        }
+                    }
+                } break;
+                case TRIGGER_REMOTE: {
+                    if(gate->permagate_index != -1 && state->permagates_open[gate->permagate_index] == true) {
+                        gate->state = GATE_OPEN;
+                    } else {
+                        gate->state = GATE_CLOSED;
+                    }
+                } break;
+                default: panic();
             }
             if(gate->state != state_prev) {
                 gate->transition_t = 0.0;
+                if(state->level_index == 34 && gate->state == GATE_OPEN) {
+                    start_cutscene(game, CUT_RIVER_GATE);
+                }
             }
-            if(gate->permagate_index != -1 
-            && gate->state == GATE_OPEN) {
+            if(gate->permagate_index != -1 && gate->state == GATE_OPEN) {
                 state->permagates_open[gate->permagate_index] = true;
             }
         }
     }
 
+    if(state->muffin_game.mode == MUFFIN_GAME_LOST) {
+        level_reset = true;
+    }
+
+    // Level reset logic
 	if((level_reset && !game->god_mode) || input_button_pressed(game->input_buttons[BUTTON_RESET])) {
         reset_level(game);
         update_visual_state(game, draw_list, v2_zero(), dt);
         return;
+	}
+
+	// Trigger dialogue on muffin sprout area
+	if(state->level_index == 67 && state->muffin_game.mode == MUFFIN_GAME_INACTIVE) {
+        Msg msg[6] = {
+            new_msg(MSG_MUFFIN, string_const("SING THE SPROUTS TO SLEEP!")),
+            new_msg(MSG_MUFFIN, string_const("IF LEFT AWAKE FOR TOO LONG, THEY'LL CAUSE A FUSS!")),
+            new_msg(MSG_MUFFIN, string_const("TO HEAR YOU, THE HONK MUST BE DIRECTLY NEXT TO THEM.")),
+            new_msg(MSG_MUFFIN, string_const("READY...")),
+            new_msg(MSG_MUFFIN, string_const("SET...")),
+            new_msg(MSG_MUFFIN, string_const("GO!!"))
+        };
+        state->muffin_game.mode = MUFFIN_GAME_ACTIVE;
+        start_msg(game, msg, 6, MODE_GAME);
 	}
 
     if(game->new_cycle_this_frame) {
@@ -205,6 +276,22 @@ void mode_game_update(Game* game, DrawList* draw_list, Audio* audio, f32 dt) {
         for(i32 i = 0; i < state->marchers_len; i++) {
             Entity* marcher = &state->marchers[i];
             state->marchers[i].pos_prev_visible = v2_from_iv2(state->marchers[i].pos_cur);
+        }
+
+        // Iterate backwards to propogate honks
+        for(i32 i = state->marchers_len - 1; i >= 0; i--) {
+            Entity* marcher = &state->marchers[i];
+            if(marcher->honk_this_cycle) {
+                if(i < state->marchers_len - 1) {
+                    state->marchers[i + 1].honk_this_cycle = true;
+                }
+                marcher->honk_this_cycle = false;
+            }
+        }
+
+        if(state->input_honk) {
+            hannah->honk_this_cycle = true;
+            state->input_honk = false;
         }
 
         // Hannah moves if applicable
@@ -224,12 +311,20 @@ void mode_game_update(Game* game, DrawList* draw_list, Audio* audio, f32 dt) {
                         sign = &state->signs[i];
                         break;
                     }
+                    if(state->signs[i].doublewide && iv2_eq(move_pos, iv2_add(state->signs[i].pos, iv2_new(1, 0)))) {
+                        sign = &state->signs[i];
+                        break;
+                    }
                 }
 
                 if(state->egg_exists && state->egg_states[state->egg_index] == EGG_UNBROKEN && iv2_eq(move_pos, state->egg_pos)) {
-                    state->egg_states[state->egg_index] = EGG_BREAKING;
-                    game->mode = MODE_EGG_EXPLODE;
-                    state->egg_t = 0.0;
+                    if(state->egg_index == 0) {
+                        start_cutscene(game, CUT_EGG_RUMBLE);
+                    } else {
+                        state->egg_states[state->egg_index] = EGG_BREAKING;
+                        game->mode = MODE_EGG_EXPLODE;
+                        state->egg_t = 0.0;
+                    }
                 } else if(sign != NULL) {
                     sign_talk(game, sign);
                 } else {
@@ -304,9 +399,96 @@ void mode_game_update(Game* game, DrawList* draw_list, Audio* audio, f32 dt) {
             entity_move(duck, best_move);
             if(duck->move_this_cycle == MOVE_LEFT)  duck->sprite_handle = SPRITE_DUCK_LEFT;
             if(duck->move_this_cycle == MOVE_RIGHT) duck->sprite_handle = SPRITE_DUCK_RIGHT;
+            if(duck->move_this_cycle == MOVE_UP)  duck->sprite_handle = SPRITE_DUCK_UP;
+            if(duck->move_this_cycle == MOVE_DOWN) duck->sprite_handle = SPRITE_DUCK_DOWN;
+
+            //if(duck->honk_this_cycle) {
+            //    if(duck->sprite_handle == SPRITE_DUCK_LEFT) duck->sprite_handle = SPRITE_DUCK_HONK_LEFT;
+            //    if(duck->sprite_handle == SPRITE_DUCK_RIGHT) duck->sprite_handle = SPRITE_DUCK_HONK_RIGHT;
+            //    if(duck->sprite_handle == SPRITE_DUCK_UP) duck->sprite_handle = SPRITE_DUCK_HONK_UP;
+            //    if(duck->sprite_handle == SPRITE_DUCK_DOWN) duck->sprite_handle = SPRITE_DUCK_HONK_DOWN;
+            //}
             update_marcher_with_platforms(state, duck, follower, false);
         }
+
+        // NOW: Frogo update
+        if(state->frogo_exists) {
+            // Check for being alerted and update target
+            Entity* frogo = &state->frogo;
+            for(MoveDirection i = 1; i < 5; i++) {
+                iv2 pos = frogo->pos_cur;
+                for(i32 j = 0; j < 6; j++) {
+                    pos = relative_pos_after_direction(pos, i);
+                    if(!pos_passable(game, pos)) {
+                        break;
+                    }
+                    if(j < 3) {
+                        if(any_marcher_at_pos(state, pos)) {
+                            if(!state->frogo_alerted) {
+                                state->frogo_alerted_just_now = true;
+                            }
+                            state->frogo_alerted = true;
+                            state->frogo_alert_direction = i;
+                            break;
+                        }
+                    } else {
+                        if(any_honk_at_pos(state, pos)) {
+                            if(!state->frogo_alerted) {
+                                state->frogo_alerted_just_now = true;
+                            }
+                            state->frogo_alerted = true;
+                            state->frogo_alert_direction = i;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        frogo_move(game);
+        // Buttons
+        for(i32 i = 0; i < state->buttons_len; i++) {
+            Button* button = &state->buttons[i];
+            ButtonState state_prev = button->state;
+            button->state = BUTTON_OFF;
+            if(state->frogo_exists && iv2_eq(state->frogo.pos_cur, button->pos)) {
+                button->state = BUTTON_ON;
+            }
+            for(i32 j = 0; j < state->marchers_len; j++) {
+                Entity* marcher = &state->marchers[j];
+                if(iv2_eq(marcher->pos_cur, button->pos)) {
+                    button->state = BUTTON_ON;
+                }
+            }
+            if(button->state != state_prev) {
+                button->transition_t = 0.0;
+            }
+        }
+
+        //for(i32 i = 0; i < state->buttons_len; i++) {
+        //    Button* button = &state->buttons[i];
+        //    if(state->frogo_exists && iv2_eq(state->frogo.pos_cur, button->pos)) {
+        //        button->state = BUTTON_ON;
+        //    }
+        //}
+
+        // Damage crumblers
+        for(i32 i = 0; i < state->platforms_len; i++) {
+            Entity* platform = &state->platforms[i];
+            if(platform->hits_taken == 0) {
+                for(i32 j = 0; j < state->marchers_len; j++) {
+                    Entity* marcher = &state->marchers[j];
+                    if(platform->crumbler && iv2_eq(marcher->pos_cur, platform->pos_cur)) {
+                        platform->hits_taken++;
+                    }
+                }
+            } else {
+                platform->hits_taken++;
+            }
+        }
     }
+
+    update_muffin_minigame(game);
+    update_snake_minigame(game);
 
     // draw
     update_visual_state(game, draw_list, v2_zero(), dt);
@@ -317,24 +499,28 @@ void mode_game_update(Game* game, DrawList* draw_list, Audio* audio, f32 dt) {
     if(game->god_mode) {
         draw_simple_text(draw_list, string_const("GOD"), v2_new(27, 58), (i32)(game->time * 2.0) % 2);
     }
-    if(input_button_pressed(game->input_buttons[BUTTON_LEAVE])) debug_timescale *= 2.0;
-    if(input_button_pressed(game->input_buttons[BUTTON_BECKON])) debug_timescale *= 0.5;
-    if(within_epsilon(debug_timescale, 1.0, 0.1)) {
-        debug_timescale = 1.0;
+    if(input_button_pressed(game->input_buttons[BUTTON_LEAVE])) dt_mod *= 2.0;
+    if(input_button_pressed(game->input_buttons[BUTTON_BECKON])) dt_mod *= 0.5;
+    if(within_epsilon(dt_mod, 1.0, 0.1)) {
+        dt_mod = 1.0;
     } else {
         char time_buf[16];
         String time_str = string_init(time_buf, 16);
-        string_print_int(&time_str, (i32)debug_timescale);
+        string_print_int(&time_str, (i32)dt_mod);
         string_cat(&time_str, string_const("X"));
         draw_simple_text(draw_list, time_str, v2_new(29, 53), 0);
+    }
+
+    if(!game->first_move_made) {
+        draw_sprite_animated(draw_list, SPRITE_WASD, game->time / 4.0, v2_new(28.0, 26.0), 0);
     }
 
     // Debug circle
     //debug_circle_pos = state->platforms[0].pos_cur;
     debug_circle_pos = hannah->pos_lead;
-    draw_sprite_animated(draw_list, SPRITE_DEBUG_CIRCLE, (game->time * 2.0), v2_scale(v2_from_iv2(debug_circle_pos), 8.0f), 0);
+    //draw_sprite_animated(draw_list, SPRITE_DEBUG_CIRCLE, (game->time * 2.0), v2_scale(v2_from_iv2(debug_circle_pos), 8.0f), 0);
     debug_circle_pos = state->hannah_pos_lead_prev;
-    draw_sprite_animated(draw_list, SPRITE_DEBUG_CIRCLE, (game->time * 4.0), v2_scale(v2_from_iv2(debug_circle_pos), 8.0f), 0);
+    //draw_sprite_animated(draw_list, SPRITE_DEBUG_CIRCLE, (game->time * 4.0), v2_scale(v2_from_iv2(debug_circle_pos), 8.0f), 0);
     //draw_sprite_animated(draw_list, SPRITE_DEBUG_CIRCLE, ((game->time + 1.0) * 2.0f), v2_scale(v2_from_iv2(debug_circle_pos_2), 8.0f), 0);
 
 	if(input_button_pressed(game->input_buttons[BUTTON_EDITOR])) {
@@ -342,10 +528,6 @@ void mode_game_update(Game* game, DrawList* draw_list, Audio* audio, f32 dt) {
 	}
 
     if(switch_to_level != -1) {
-        // TODO: Prevent ducks from previous level from leading to endless
-        // death. Always get them out of the way for switching levels.
-
-        printf("switch to level %d\n", switch_to_level);
         state->level_index_prev = state->level_index;
         state->level_index = switch_to_level;
         state->level_prev_offset_pos = v2_scale(v2_from_iv2(level_switch_offset), 64.0);
@@ -356,9 +538,39 @@ void mode_game_update(Game* game, DrawList* draw_list, Audio* audio, f32 dt) {
             entity_offset_teleport(&state->marchers[i], iv2_scale(level_switch_offset, 8));
         }
 
+        if(state->boat_riding) {
+            for(i32 i = 0; i < 5; i++) {
+                entity_offset_teleport(&state->platforms[i], iv2_scale(level_switch_offset, 8));
+            }
+        }
+
         for(i32 i = 0; i < SIGNS_MAX; i++) {
             state->signs[i].talk_count = 0;
         }
+
+    	for(i32 i = 0; i < state->platforms_len; i++) {
+        	Entity* platform = &state->platforms[i];
+            platform->hits_taken = 0;
+            // NOW: this was previously on every logic update. shouldn't cause problems to do it here.
+            platform->sink_state = PLATFORM_FLOAT;
+            platform->crumbler = false;
+            platform->snake_index = 0;
+    	}
+
+    	for(i32 i = 0; i < state->buttons_len; i++) {
+        	Button* button = &state->buttons[i];
+        	button->state = BUTTON_OFF;
+
+    	}
+
+    	// NOW: get apple ready
+    	SnakeGame* snake_game = &state->snake_game;
+    	snake_game->apple_active = true;
+    	snake_game->apple_pos = iv2_new(1 + random_i32(5), 1 + random_i32(5));
+
+    	state->frogo_alerted = false;
+        state->frogo_alert_direction = MOVE_NONE;
+        state->frogo.sprite_handle = SPRITE_FROG_LEAP_RIGHT;
     }
 
 }

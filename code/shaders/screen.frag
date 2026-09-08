@@ -1,5 +1,5 @@
 #version 430 core
-precision highp float;
+precision mediump float;
 in vec2 uv;
 out vec4 frag_color;
 

@@ -1,3 +1,5 @@
+#define GL_UBO_SPRITES 64
+
 typedef struct {
     DrawList       list;
     GlProgram      sprite_program;
@@ -64,9 +66,19 @@ void gl_render_update(RendererGL* renderer, char* assets) {
     glBindTexture(GL_TEXTURE_2D, renderer->atlas_texture.id);
     Primitive2dData* quad = primitive_2d_asset(assets, PRIMITIVE_2D_QUAD);
 
-	glBindBuffer(GL_UNIFORM_BUFFER, renderer->sprite_ubo.id);
-	glBufferSubData(GL_UNIFORM_BUFFER, 0, list->sprites_len * sizeof(DrawSprite), list->sprites); 
-	glDrawArraysInstanced(GL_TRIANGLES, 0, quad->vertices_len, list->sprites_len);
+    i32 sprite_draw_index = 0;
+    while(sprite_draw_index < list->sprites_len) {
+        i32 sprite_draw_count = 64;
+        if(sprite_draw_index + 64 > list->sprites_len) {
+            sprite_draw_count = list->sprites_len - sprite_draw_index;
+        }
+
+    	glBindBuffer(GL_UNIFORM_BUFFER, renderer->sprite_ubo.id);
+    	glBufferSubData(GL_UNIFORM_BUFFER, 0, sprite_draw_count * sizeof(DrawSprite), &list->sprites[sprite_draw_index]); 
+    	glDrawArraysInstanced(GL_TRIANGLES, 0, quad->vertices_len, sprite_draw_count);
+
+    	sprite_draw_index += 64;
+    }
 
 	glBindBuffer(GL_UNIFORM_BUFFER, renderer->sprite_ubo.id);
 	glBufferSubData(GL_UNIFORM_BUFFER, 0, list->sprites_above_len * sizeof(DrawSprite), list->sprites_above); 
